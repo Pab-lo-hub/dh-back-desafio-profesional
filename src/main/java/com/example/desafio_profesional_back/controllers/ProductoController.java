@@ -2,79 +2,102 @@ package com.example.desafio_profesional_back.controllers;
 
 import com.example.desafio_profesional_back.models.Producto;
 import com.example.desafio_profesional_back.services.ProductoService;
+import org.springframework.beans.factory.annotation.Autowired;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.UrlResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.io.IOException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
 
 @RestController
-@RequestMapping("/producto/v1")
+@RequestMapping("/api/productos")
 @RequiredArgsConstructor
 @Validated
 public class ProductoController {
-    private final ProductoService productoService;
+    @Autowired
+    private ProductoService productoService;
 
-    /**
-     * This method is called when a GET request is made
-     * URL: localhost:8080/producto/v1/
-     */
-    @GetMapping("/")
+    // Crear un producto con múltiples imágenes
+    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Producto> createProducto(
+            @RequestParam("nombre") String nombre,
+            @RequestParam("descripcion") String descripcion,
+            @RequestParam("imagenes") List<MultipartFile> imagenes) throws IOException {
+        Producto producto = new Producto();
+        producto.setNombre(nombre);
+        producto.setDescripcion(descripcion);
+
+        Producto savedProducto = productoService.saveProducto(producto, imagenes);
+        return new ResponseEntity<>(savedProducto, HttpStatus.CREATED);
+    }
+
+    // Obtener todos los productos
+    @GetMapping
     public ResponseEntity<List<Producto>> getAllProductos() {
-        return ResponseEntity.ok().body(new ArrayList<Producto>());
+        return ResponseEntity.ok(productoService.findAll());
     }
 
-    /**
-     * This method is called when a GET request is made
-     * URL: localhost:8080/product/v1/1 (or any other id)
-     * Purpose: Fetches product with the given id
-     * @param id - product id
-     * @return Product with the given id
-     */
-
+    // Obtener un producto por ID
     @GetMapping("/{id}")
-    public ResponseEntity<Producto> getProductoById(@PathVariable Integer id) {
-        return ResponseEntity.ok().body(productoService.getProductoById(id));
+    public ResponseEntity<Producto> getProducto(@PathVariable Integer id) {
+        Producto producto = productoService.findById(id);
+        if (producto != null) {
+            return ResponseEntity.ok(producto);
+        }
+        return ResponseEntity.notFound().build();
     }
 
-    /**
-     * This method is called when a POST request is made
-     * URL: localhost:8080/producto/v1/
-     * Purpose: Save a Producto entity
-     * @param producto - Request body is an Product entity
-     * @return Saved Producto entity
-     */
-    @PostMapping("/")
-    public ResponseEntity<Producto> saveProducto(@RequestBody Producto producto){
-        return ResponseEntity.ok().body(productoService.saveProducto(producto));
+    // Actualizar un producto con nuevas imágenes (opcional)
+    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Producto> updateProducto(
+            @PathVariable Integer id,
+            @RequestParam("nombre") String nombre,
+            @RequestParam("descripcion") String descripcion,
+            @RequestParam(value = "imagenes", required = false) List<MultipartFile> imagenes) throws IOException {
+        Producto productoDetails = new Producto();
+        productoDetails.setNombre(nombre);
+        productoDetails.setDescripcion(descripcion);
+
+        Producto updatedProducto = productoService.update(id, productoDetails, imagenes);
+        if (updatedProducto != null) {
+            return ResponseEntity.ok(updatedProducto);
+        }
+        return ResponseEntity.notFound().build();
     }
 
-    /**
-     * This method is called when a PUT request is made
-     * URL: localhost:8080/producto/v1/
-     * Purpose: Update a Producto entity
-     * @param producto - Producto entity to be updated
-     * @return Updated Producto
-     */
-    @PutMapping("/")
-    public ResponseEntity<Producto> updateProducto (@RequestBody Producto producto){
-        return ResponseEntity.ok().body(productoService.updateProducto(producto));
-    }
-
-    /**
-     * This method is called when a Delete request is made
-     * URL: localhost:8080/producto/v1/1 (or any other id)
-     * Purpose: Delete an Producto entity
-     * @param id - Producto's id to be deleted
-     * @return a String message indicating producto record has been deleted successfully
-     */
+    // Eliminar un producto
     @DeleteMapping("/{id}")
-    public ResponseEntity<String> deleteProducto(@PathVariable Integer id) {
+    public ResponseEntity<Void> deleteProducto(@PathVariable Integer id) {
+        Producto producto = productoService.findById(id);
+        if (producto == null) return ResponseEntity.notFound().build();
         productoService.deleteProductoById(id);
-        return ResponseEntity.ok().body("Eliminado correctamente");
+        return ResponseEntity.noContent().build();
     }
 
+    // Servir una imagen
+    @GetMapping("/uploads/{filename:.+}")
+    public ResponseEntity<Resource> getImage(@PathVariable String filename) throws IOException {
+        Path filePath = Paths.get("src/main/resources/static/uploads/" + filename);
+        Resource resource = new UrlResource(filePath.toUri());
 
+        if (resource.exists() && resource.isReadable()) {
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
+                    .contentType(MediaType.IMAGE_JPEG)
+                    .body(resource);
+        }
+        return ResponseEntity.notFound().build();
+    }
 }
