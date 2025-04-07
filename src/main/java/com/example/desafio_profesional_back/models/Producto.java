@@ -1,5 +1,6 @@
 package com.example.desafio_profesional_back.models;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -28,5 +29,6 @@ public class Producto {
     private String descripcion;
 
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference // Serializa esta parte de la relación
     private List<Imagen> imagenes = new ArrayList<>(); // Lista de imágenes asociadas
 }
