@@ -26,7 +26,7 @@ import java.util.UUID;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class ProductoService {
+public class    ProductoService {
     @Autowired
     private final ProductoRepository productoRepository;
 

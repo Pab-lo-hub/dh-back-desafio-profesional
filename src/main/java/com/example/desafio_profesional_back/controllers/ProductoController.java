@@ -110,4 +110,14 @@ public class ProductoController {
         }
         return ResponseEntity.notFound().build();
     }
+
+    // Obtener un producto por ID
+    @GetMapping("/{id}")
+    public ResponseEntity<Producto> getProductoById(@PathVariable("id") Integer id) {
+        Producto producto = productoService.findById(id);
+        if (producto == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        return new ResponseEntity<>(producto, HttpStatus.OK);
+    }
 }
