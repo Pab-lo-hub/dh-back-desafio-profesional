@@ -31,14 +31,24 @@ public class ProductoController {
 
     // Crear un producto con múltiples imágenes
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<Producto> createProducto(
+    public ResponseEntity<?> createProducto(
             @RequestParam("nombre") String nombre,
             @RequestParam("descripcion") String descripcion,
             @RequestParam("imagenes") List<MultipartFile> imagenes) throws IOException {
+
+        // Verificar si ya existe un producto con el mismo nombre
+        if (productoService.existsByName(nombre)) {
+            return ResponseEntity
+                    .status(HttpStatus.CONFLICT)
+                    .body("Error: Ya existe un producto con el nombre '" + nombre + "'");
+        }
+
+        // Crear el producto
         Producto producto = new Producto();
         producto.setNombre(nombre);
         producto.setDescripcion(descripcion);
 
+        // Guardar el producto con las imágenes
         Producto savedProducto = productoService.saveProducto(producto, imagenes);
         return new ResponseEntity<>(savedProducto, HttpStatus.CREATED);
     }

@@ -106,4 +106,9 @@ public class ProductoService {
         return productoRepository.findById(id).orElse(null);
     }
 
+    // Metodo para verificar si existe un producto por nombre
+    public boolean existsByName(String nombre) {
+        return productoRepository.existsByName(nombre);
+    }
+
 }
