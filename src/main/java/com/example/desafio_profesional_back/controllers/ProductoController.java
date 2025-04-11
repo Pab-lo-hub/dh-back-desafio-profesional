@@ -14,8 +14,6 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -37,7 +35,7 @@ public class ProductoController {
             @RequestParam("imagenes") List<MultipartFile> imagenes) throws IOException {
 
         // Verificar si ya existe un producto con el mismo nombre
-        if (productoService.existsByName(nombre)) {
+        if (productoService.existsByNombre(nombre)) {
             return ResponseEntity
                     .status(HttpStatus.CONFLICT)
                     .body("Error: Ya existe un producto con el nombre '" + nombre + "'");
@@ -61,12 +59,12 @@ public class ProductoController {
 
     // Obtener un producto por ID
     @GetMapping("/{id}")
-    public ResponseEntity<Producto> getProducto(@PathVariable Integer id) {
+    public ResponseEntity<Producto> getProductoById(@PathVariable("id") Integer id) {
         Producto producto = productoService.findById(id);
-        if (producto != null) {
-            return ResponseEntity.ok(producto);
+        if (producto == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        return ResponseEntity.notFound().build();
+        return new ResponseEntity<>(producto, HttpStatus.OK);
     }
 
     // Actualizar un producto con nuevas imágenes (opcional)
@@ -109,15 +107,5 @@ public class ProductoController {
                     .body(resource);
         }
         return ResponseEntity.notFound().build();
-    }
-
-    // Obtener un producto por ID
-    @GetMapping("/{id}")
-    public ResponseEntity<Producto> getProductoById(@PathVariable("id") Integer id) {
-        Producto producto = productoService.findById(id);
-        if (producto == null) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
-        }
-        return new ResponseEntity<>(producto, HttpStatus.OK);
     }
 }
