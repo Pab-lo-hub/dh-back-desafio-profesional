@@ -6,8 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.LocalDate;
-import java.time.LocalDateTime;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -20,7 +19,7 @@ import java.util.List;
 @Entity
 @Table(name = "productos")
 public class Producto {
-    /*@Id: Representa a un primary key (llama primario) de nuestra tabla tbproduct*/
+    /*@Id: Representa a un primary key de nuestra tabla */
     @Id
     /*@GeneratedValue: Representa a un campo autogereado (secuencial), equivalente a un campo identity de una sentencia SQL.*/
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,4 +30,9 @@ public class Producto {
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference // Serializa esta parte de la relación
     private List<Imagen> imagenes = new ArrayList<>(); // Lista de imágenes asociadas
+
+    // Relación muchos-a-uno con categoría
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "categoria_id")
+    private Categoria categoria;
 }

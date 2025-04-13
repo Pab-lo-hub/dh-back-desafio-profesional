@@ -4,11 +4,6 @@ import com.example.desafio_profesional_back.models.Producto;
 import com.example.desafio_profesional_back.services.ProductoService;
 import org.springframework.beans.factory.annotation.Autowired;
 import lombok.RequiredArgsConstructor;
-import org.springframework.core.io.Resource;
-import org.springframework.core.io.UrlResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -24,88 +19,93 @@ import java.util.List;
 @RequiredArgsConstructor
 @Validated
 public class ProductoController {
+
     @Autowired
     private ProductoService productoService;
 
-    // Crear un producto con múltiples imágenes
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<?> createProducto(
-            @RequestParam("nombre") String nombre,
-            @RequestParam("descripcion") String descripcion,
-            @RequestParam("imagenes") List<MultipartFile> imagenes) throws IOException {
-
-        // Verificar si ya existe un producto con el mismo nombre
-        if (productoService.existsByNombre(nombre)) {
-            return ResponseEntity
-                    .status(HttpStatus.CONFLICT)
-                    .body("Error: Ya existe un producto con el nombre '" + nombre + "'");
-        }
-
-        // Crear el producto
-        Producto producto = new Producto();
-        producto.setNombre(nombre);
-        producto.setDescripcion(descripcion);
-
-        // Guardar el producto con las imágenes
-        Producto savedProducto = productoService.saveProducto(producto, imagenes);
-        return new ResponseEntity<>(savedProducto, HttpStatus.CREATED);
-    }
-
-    // Obtener todos los productos
+    /**
+     * Obtiene todos los productos.
+     * @return Lista de productos.
+     */
     @GetMapping
     public ResponseEntity<List<Producto>> getAllProductos() {
         return ResponseEntity.ok(productoService.findAll());
     }
 
-    // Obtener un producto por ID
+    /**
+     * Obtiene un producto por ID.
+     * @param id ID del producto.
+     * @return Producto encontrado.
+     */
     @GetMapping("/{id}")
-    public ResponseEntity<Producto> getProductoById(@PathVariable("id") Integer id) {
-        Producto producto = productoService.findById(id);
+    public ResponseEntity<Producto> getProductoById(@PathVariable Integer id) {
+        Producto producto = productoService.getProductoById(id);
         if (producto == null) {
-            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            return ResponseEntity.notFound().build();
         }
-        return new ResponseEntity<>(producto, HttpStatus.OK);
+        return ResponseEntity.ok(producto);
     }
 
-    // Actualizar un producto con nuevas imágenes (opcional)
-    @PutMapping(value = "/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    /**
+     * Crea un nuevo producto con imágenes y categoría opcional.
+     * @param producto Objeto producto.
+     * @param imagenes Lista de imágenes.
+     * @param categoriaId ID de la categoría (opcional).
+     * @return Producto creado.
+     * @throws IOException Si falla el almacenamiento de imágenes.
+     */
+    @PostMapping
+    public ResponseEntity<Producto> createProducto(
+            @RequestPart("producto") Producto producto,
+            @RequestPart(value = "imagenes", required = false) List<MultipartFile> imagenes,
+            @RequestParam(value = "categoriaId", required = false) Integer categoriaId) throws IOException {
+        Producto created = productoService.saveProducto(producto, imagenes, categoriaId);
+        return ResponseEntity.ok(created);
+    }
+
+    /**
+     * Asigna una categoría a un producto existente.
+     * @param id ID del producto.
+     * @param categoriaId ID de la categoría.
+     * @return Producto actualizado.
+     */
+    @PutMapping("/{id}/categoria")
+    public ResponseEntity<Producto> asignarCategoria(
+            @PathVariable Integer id,
+            @RequestParam Integer categoriaId) {
+        return ResponseEntity.ok(productoService.asignarCategoria(id, categoriaId));
+    }
+
+    /**
+     * Actualiza un producto existente.
+     * @param id ID del producto.
+     * @param producto Objeto producto con nuevos datos.
+     * @param imagenes Nuevas imágenes (opcional).
+     * @param categoriaId ID de la categoría (opcional).
+     * @return Producto actualizado.
+     * @throws IOException Si falla el almacenamiento de imágenes.
+     */
+    @PutMapping("/{id}")
     public ResponseEntity<Producto> updateProducto(
             @PathVariable Integer id,
-            @RequestParam("nombre") String nombre,
-            @RequestParam("descripcion") String descripcion,
-            @RequestParam(value = "imagenes", required = false) List<MultipartFile> imagenes) throws IOException {
-        Producto productoDetails = new Producto();
-        productoDetails.setNombre(nombre);
-        productoDetails.setDescripcion(descripcion);
-
-        Producto updatedProducto = productoService.update(id, productoDetails, imagenes);
-        if (updatedProducto != null) {
-            return ResponseEntity.ok(updatedProducto);
+            @RequestPart("producto") Producto producto,
+            @RequestPart(value = "imagenes", required = false) List<MultipartFile> imagenes,
+            @RequestParam(value = "categoriaId", required = false) Integer categoriaId) throws IOException {
+        Producto updated = productoService.update(id, producto, imagenes, categoriaId);
+        if (updated == null) {
+            return ResponseEntity.notFound().build();
         }
-        return ResponseEntity.notFound().build();
+        return ResponseEntity.ok(updated);
     }
 
-    // Eliminar un producto
+    /**
+     * Elimina un producto por ID.
+     * @param id ID del producto.
+     * @return Respuesta vacía si se elimina con éxito.
+     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteProducto(@PathVariable Integer id) {
-        Producto producto = productoService.findById(id);
-        if (producto == null) return ResponseEntity.notFound().build();
         productoService.deleteProductoById(id);
         return ResponseEntity.noContent().build();
-    }
-
-    // Servir una imagen
-    @GetMapping("/uploads/{filename:.+}")
-    public ResponseEntity<Resource> getImage(@PathVariable String filename) throws IOException {
-        Path filePath = Paths.get("src/main/resources/static/uploads/" + filename);
-        Resource resource = new UrlResource(filePath.toUri());
-
-        if (resource.exists() && resource.isReadable()) {
-            return ResponseEntity.ok()
-                    .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + resource.getFilename() + "\"")
-                    .contentType(MediaType.IMAGE_JPEG)
-                    .body(resource);
-        }
-        return ResponseEntity.notFound().build();
     }
 }
