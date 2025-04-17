@@ -61,7 +61,7 @@ public class CategoriaService {
      * @param id ID de la categoría.
      * @throws IllegalArgumentException Si la categoría no existe.
      */
-    public void deleteCategoria(Integer id) {
+    public void deleteCategoria(Long id) {
         if (!categoriaRepository.existsById(id)) {
             throw new IllegalArgumentException("Categoría no encontrada");
         }

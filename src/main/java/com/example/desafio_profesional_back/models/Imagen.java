@@ -14,7 +14,7 @@ import lombok.NoArgsConstructor;
 public class Imagen {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
+    private Long id;
 
     @Column(name = "ruta", nullable = false)
     private String ruta; // Ruta de la imagen en el sistema de archivos

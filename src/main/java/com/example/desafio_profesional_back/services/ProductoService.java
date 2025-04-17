@@ -1,6 +1,7 @@
 // src/main/java/com/example/desafio_profesional_back/services/ProductoService.java
 package com.example.desafio_profesional_back.services;
 
+import com.example.desafio_profesional_back.dto.ProductoDTO;
 import com.example.desafio_profesional_back.models.Categoria;
 import com.example.desafio_profesional_back.models.Imagen;
 import com.example.desafio_profesional_back.models.Producto;
@@ -17,6 +18,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,176 +32,236 @@ import java.util.UUID;
 public class ProductoService {
 
     @Autowired
-    private final ProductoRepository productoRepository;
+    private ProductoRepository productoRepository;
 
     @Autowired
-    private final ImagenRepository imagenRepository;
+    private ImagenRepository imagenRepository;
 
     @Autowired
-    private final CategoriaRepository categoriaRepository;
-
-    // Directorio para almacenar imágenes
-    private static final String UPLOAD_DIR = "src/main/resources/static/uploads/";
+    private CategoriaRepository categoriaRepository;
 
     /**
-     * Obtiene todos los productos.
-     * @return Lista de productos.
+     * Obtiene todos los productos como DTOs.
+     * @return Lista de ProductoDTO
      */
-    public List<Producto> findAll() {
-        return productoRepository.findAll();
-    }
+    public List<ProductoDTO> findAll() {
+        List<Producto> productos = productoRepository.findAll();
+        List<ProductoDTO> result = new ArrayList<>();
 
-    /**
-     * Obtiene un producto por su ID.
-     * @param id ID del producto.
-     * @return Producto encontrado o null si no existe.
-     */
-    public Producto getProductoById(Integer id) {
-        Optional<Producto> optionalProducto = productoRepository.findById(id);
-        if (optionalProducto.isPresent()) {
-            return optionalProducto.get();
-        }
-        log.info("Producto con id: {} no existe", id);
-        return null;
-    }
+        for (Producto producto : productos) {
+            ProductoDTO dto = new ProductoDTO();
+            dto.setId(producto.getId());
+            dto.setNombre(producto.getNombre());
+            dto.setDescripcion(producto.getDescripcion());
 
-    /**
-     * Guarda un nuevo producto con imágenes y categoría opcional.
-     * @param producto Objeto producto con nombre y descripción.
-     * @param imagenes Lista de imágenes (puede ser vacía).
-     * @param categoriaId ID de la categoría (puede ser null).
-     * @return Producto guardado.
-     * @throws IOException Si falla el almacenamiento de imágenes.
-     * @throws IllegalArgumentException Si la categoría no existe.
-     */
-    public Producto saveProducto(Producto producto, List<MultipartFile> imagenes, Integer categoriaId) throws IOException {
-        // Asigna la categoría si se proporciona
-        if (categoriaId != null) {
-            Categoria categoria = categoriaRepository.findById(categoriaId)
-                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
-            producto.setCategoria(categoria);
-        }
-
-        // Guarda el producto
-        Producto savedProducto = productoRepository.save(producto);
-        log.info("Producto con id: {} guardado exitosamente", savedProducto.getId());
-
-        // Guarda las imágenes
-        if (imagenes != null && !imagenes.isEmpty()) {
-            for (MultipartFile imagen : imagenes) {
-                if (!imagen.isEmpty()) {
-                    String fileName = UUID.randomUUID() + "-" + imagen.getOriginalFilename();
-                    Path filePath = Paths.get(UPLOAD_DIR, fileName);
-                    Files.createDirectories(filePath.getParent());
-                    Files.write(filePath, imagen.getBytes());
-
-                    Imagen nuevaImagen = new Imagen();
-                    nuevaImagen.setRuta("/uploads/" + fileName);
-                    nuevaImagen.setProducto(savedProducto);
-                    imagenRepository.save(nuevaImagen);
-                    savedProducto.getImagenes().add(nuevaImagen);
-                }
+            // Mapear categoría
+            if (producto.getCategoria() != null) {
+                ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
+                categoriaDTO.setId(producto.getCategoria().getId());
+                categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
+                dto.setCategoria(categoriaDTO);
             }
+
+            // Mapear imágenes
+            List<Imagen> imagenes = imagenRepository.findByProductoId(producto.getId());
+            List<ProductoDTO.ImagenDTO> imagenDTOs = imagenes.stream().map(imagen -> {
+                ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
+                imagenDTO.setId(imagen.getId());
+                imagenDTO.setRuta(imagen.getRuta());
+                return imagenDTO;
+            }).toList();
+            dto.setImagenes(imagenDTOs);
+
+            result.add(dto);
         }
 
-        return savedProducto;
+        return result;
     }
 
     /**
-     * Actualiza un producto existente con nueva información y/o imágenes.
-     * @param id ID del producto.
-     * @param productoDetails Nuevos detalles del producto.
-     * @param nuevasImagenes Nuevas imágenes (puede ser vacía).
-     * @param categoriaId ID de la categoría (puede ser null).
-     * @return Producto actualizado o null si no existe.
-     * @throws IOException Si falla el almacenamiento de imágenes.
+     * Obtiene un producto por su ID como DTO.
+     * @param id ID del producto
+     * @return ProductoDTO o null si no existe
      */
-    public Producto update(Integer id, Producto productoDetails, List<MultipartFile> nuevasImagenes, Integer categoriaId) throws IOException {
-        Producto producto = findById(id);
-        if (producto == null) {
-            log.info("Producto con id: {} no existe", id);
+    public ProductoDTO findById(Long id) {
+        Optional<Producto> productoOpt = productoRepository.findById(id);
+        if (!productoOpt.isPresent()) {
             return null;
         }
+        Producto producto = productoOpt.get();
+        ProductoDTO dto = new ProductoDTO();
+        dto.setId(producto.getId());
+        dto.setNombre(producto.getNombre());
+        dto.setDescripcion(producto.getDescripcion());
 
-        // Actualiza nombre y descripción
-        producto.setNombre(productoDetails.getNombre());
-        producto.setDescripcion(productoDetails.getDescripcion());
-
-        // Actualiza categoría
-        if (categoriaId != null) {
-            Categoria categoria = categoriaRepository.findById(categoriaId)
-                    .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
-            producto.setCategoria(categoria);
-        } else {
-            producto.setCategoria(null);
+        // Mapear categoría
+        if (producto.getCategoria() != null) {
+            ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
+            categoriaDTO.setId(producto.getCategoria().getId());
+            categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
+            dto.setCategoria(categoriaDTO);
         }
 
-        // Actualiza imágenes
-        if (nuevasImagenes != null && !nuevasImagenes.isEmpty()) {
-            for (MultipartFile imagen : nuevasImagenes) {
-                if (!imagen.isEmpty()) {
-                    String fileName = UUID.randomUUID() + "-" + imagen.getOriginalFilename();
-                    Path filePath = Paths.get(UPLOAD_DIR, fileName);
-                    Files.write(filePath, imagen.getBytes());
+        // Mapear imágenes
+        List<Imagen> imagenes = imagenRepository.findByProductoId(producto.getId());
+        List<ProductoDTO.ImagenDTO> imagenDTOs = imagenes.stream().map(imagen -> {
+            ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
+            imagenDTO.setId(imagen.getId());
+            imagenDTO.setRuta(imagen.getRuta());
+            return imagenDTO;
+        }).toList();
+        dto.setImagenes(imagenDTOs);
 
-                    Imagen nuevaImagen = new Imagen();
-                    nuevaImagen.setRuta("/uploads/" + fileName);
-                    nuevaImagen.setProducto(producto);
-                    imagenRepository.save(nuevaImagen);
-                    producto.getImagenes().add(nuevaImagen);
-                }
+        return dto;
+    }
+
+    /**
+     * Actualiza un producto existente usando datos de un DTO.
+     * @param id ID del producto
+     * @param productoDTO Datos actualizados (nombre, descripción)
+     * @param imagenes Nuevas imágenes
+     * @param categoriaId ID de la categoría
+     * @return ProductoDTO actualizado o null si no existe
+     * @throws IOException si falla el manejo de imágenes
+     */
+    public ProductoDTO update(Long id, ProductoDTO productoDTO, List<MultipartFile> imagenes, Long categoriaId) throws IOException {
+        Optional<Producto> existing = productoRepository.findById(id);
+        if (!existing.isPresent()) {
+            return null;
+        }
+        Producto toUpdate = existing.get();
+        toUpdate.setNombre(productoDTO.getNombre());
+        toUpdate.setDescripcion(productoDTO.getDescripcion());
+
+        // Actualizar categoría
+        if (categoriaId != null) {
+            Optional<Categoria> categoria = categoriaRepository.findById(categoriaId);
+            toUpdate.setCategoria(categoria.orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada")));
+        } else {
+            toUpdate.setCategoria(null);
+        }
+
+        // Guardar producto
+        productoRepository.save(toUpdate);
+
+        // Manejar imágenes
+        if (imagenes != null && !imagenes.isEmpty()) {
+            // Eliminar imágenes existentes
+            imagenRepository.deleteByProductoId(id);
+            // Guardar nuevas imágenes
+            for (MultipartFile file : imagenes) {
+                String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                Path filePath = Paths.get("uploads/" + fileName);
+                Files.createDirectories(filePath.getParent());
+                Files.write(filePath, file.getBytes());
+                Imagen imagen = new Imagen();
+                imagen.setProducto(toUpdate);
+                imagen.setRuta("/uploads/" + fileName);
+                imagenRepository.save(imagen);
             }
         }
 
-        return productoRepository.save(producto);
+        // Crear DTO para la respuesta
+        ProductoDTO result = new ProductoDTO();
+        result.setId(toUpdate.getId());
+        result.setNombre(toUpdate.getNombre());
+        result.setDescripcion(toUpdate.getDescripcion());
+
+        // Mapear categoría
+        if (toUpdate.getCategoria() != null) {
+            ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
+            categoriaDTO.setId(toUpdate.getCategoria().getId());
+            categoriaDTO.setTitulo(toUpdate.getCategoria().getTitulo());
+            result.setCategoria(categoriaDTO);
+        }
+
+        // Mapear imágenes
+        List<Imagen> updatedImagenes = imagenRepository.findByProductoId(toUpdate.getId());
+        List<ProductoDTO.ImagenDTO> imagenDTOs = updatedImagenes.stream().map(imagen -> {
+            ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
+            imagenDTO.setId(imagen.getId());
+            imagenDTO.setRuta(imagen.getRuta());
+            return imagenDTO;
+        }).toList();
+        result.setImagenes(imagenDTOs);
+
+        return result;
+    }
+
+    /**
+     * Crea un nuevo producto usando datos de un DTO.
+     * @param productoDTO Datos del producto (nombre, descripción)
+     * @param imagenes Imágenes (opcional)
+     * @param categoriaId ID de la categoría (opcional)
+     * @return ProductoDTO creado
+     * @throws IOException si falla el manejo de imágenes
+     */
+    public ProductoDTO create(ProductoDTO productoDTO, List<MultipartFile> imagenes, Long categoriaId) throws IOException {
+        Producto producto = new Producto();
+        producto.setNombre(productoDTO.getNombre());
+        producto.setDescripcion(productoDTO.getDescripcion());
+
+        // Asignar categoría
+        if (categoriaId != null) {
+            Optional<Categoria> categoria = categoriaRepository.findById(categoriaId);
+            producto.setCategoria(categoria.orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada")));
+        }
+
+        // Guardar producto
+        productoRepository.save(producto);
+
+        // Manejar imágenes
+        if (imagenes != null && !imagenes.isEmpty()) {
+            for (MultipartFile file : imagenes) {
+                String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
+                Path filePath = Paths.get("uploads/" + fileName);
+                Files.createDirectories(filePath.getParent());
+                Files.write(filePath, file.getBytes());
+                Imagen imagen = new Imagen();
+                imagen.setProducto(producto);
+                imagen.setRuta("/uploads/" + fileName);
+                imagenRepository.save(imagen);
+            }
+        }
+
+        // Crear DTO para la respuesta
+        ProductoDTO result = new ProductoDTO();
+        result.setId(producto.getId());
+        result.setNombre(producto.getNombre());
+        result.setDescripcion(producto.getDescripcion());
+
+        // Mapear categoría
+        if (producto.getCategoria() != null) {
+            ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
+            categoriaDTO.setId(producto.getCategoria().getId());
+            categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
+            result.setCategoria(categoriaDTO);
+        }
+
+        // Mapear imágenes
+        List<Imagen> createdImagenes = imagenRepository.findByProductoId(producto.getId());
+        List<ProductoDTO.ImagenDTO> imagenDTOs = createdImagenes.stream().map(imagen -> {
+            ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
+            imagenDTO.setId(imagen.getId());
+            imagenDTO.setRuta(imagen.getRuta());
+            return imagenDTO;
+        }).toList();
+        result.setImagenes(imagenDTOs);
+
+        return result;
     }
 
     /**
      * Elimina un producto por su ID.
-     * @param id ID del producto.
+     * @param id ID del producto
+     * @return true si se eliminó, false si no existe
      */
-    public void deleteProductoById(Integer id) {
-        if (productoRepository.existsById(id)) {
-            productoRepository.deleteById(id);
-            log.info("Producto con id: {} eliminado", id);
-        } else {
-            log.info("Producto con id: {} no existe", id);
+    public boolean delete(Long id) {
+        if (!productoRepository.existsById(id)) {
+            return false;
         }
-    }
-
-    /**
-     * Busca un producto por su ID.
-     * @param id ID del producto.
-     * @return Producto encontrado o null.
-     */
-    public Producto findById(Integer id) {
-        return productoRepository.findById(id).orElse(null);
-    }
-
-    /**
-     * Verifica si existe un producto por su nombre.
-     * @param nombre Nombre del producto.
-     * @return true si existe, false si no.
-     */
-    public boolean existsByNombre(String nombre) {
-        return productoRepository.existsByNombre(nombre);
-    }
-
-    /**
-     * Asigna una categoría a un producto existente.
-     * @param productoId ID del producto.
-     * @param categoriaId ID de la categoría.
-     * @return Producto actualizado.
-     * @throws IllegalArgumentException Si el producto o categoría no existen.
-     */
-    public Producto asignarCategoria(Integer productoId, Integer categoriaId) {
-        Producto producto = findById(productoId);
-        if (producto == null) {
-            throw new IllegalArgumentException("Producto no encontrado");
-        }
-        Categoria categoria = categoriaRepository.findById(categoriaId)
-                .orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada"));
-        producto.setCategoria(categoria);
-        return productoRepository.save(producto);
+        imagenRepository.deleteByProductoId(id);
+        productoRepository.deleteById(id);
+        return true;
     }
 }
