@@ -1,11 +1,13 @@
-// src/main/java/com/example/desafio_profesional_back/services/ProductoService.java
 package com.example.desafio_profesional_back.services;
 
 import com.example.desafio_profesional_back.dto.ProductoDTO;
+import com.example.desafio_profesional_back.dto.FeatureDTO;
 import com.example.desafio_profesional_back.models.Categoria;
+import com.example.desafio_profesional_back.models.Feature;
 import com.example.desafio_profesional_back.models.Imagen;
 import com.example.desafio_profesional_back.models.Producto;
 import com.example.desafio_profesional_back.repositories.CategoriaRepository;
+import com.example.desafio_profesional_back.repositories.FeatureRepository;
 import com.example.desafio_profesional_back.repositories.ImagenRepository;
 import com.example.desafio_profesional_back.repositories.ProductoRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +23,9 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Capa de servicio que contiene la lógica de negocio para productos.
@@ -39,6 +43,9 @@ public class ProductoService {
 
     @Autowired
     private CategoriaRepository categoriaRepository;
+
+    @Autowired
+    private FeatureRepository featureRepository;
 
     /**
      * Obtiene todos los productos como DTOs.
@@ -71,6 +78,18 @@ public class ProductoService {
                 return imagenDTO;
             }).toList();
             dto.setImagenes(imagenDTOs);
+
+            // Mapear características
+            if (producto.getFeatures() != null) {
+                Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
+                    FeatureDTO featureDTO = new FeatureDTO();
+                    featureDTO.setId(feature.getId());
+                    featureDTO.setNombre(feature.getNombre());
+                    featureDTO.setIcono(feature.getIcono());
+                    return featureDTO;
+                }).collect(Collectors.toSet());
+                dto.setFeatures(featureDTOs);
+            }
 
             result.add(dto);
         }
@@ -112,6 +131,18 @@ public class ProductoService {
         }).toList();
         dto.setImagenes(imagenDTOs);
 
+        // Mapear características
+        if (producto.getFeatures() != null) {
+            Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
+                FeatureDTO featureDTO = new FeatureDTO();
+                featureDTO.setId(feature.getId());
+                featureDTO.setNombre(feature.getNombre());
+                featureDTO.setIcono(feature.getIcono());
+                return featureDTO;
+            }).collect(Collectors.toSet());
+            dto.setFeatures(featureDTOs);
+        }
+
         return dto;
     }
 
@@ -121,10 +152,11 @@ public class ProductoService {
      * @param productoDTO Datos actualizados (nombre, descripción)
      * @param imagenes Nuevas imágenes
      * @param categoriaId ID de la categoría
+     * @param featureIds IDs de las características
      * @return ProductoDTO actualizado o null si no existe
      * @throws IOException si falla el manejo de imágenes
      */
-    public ProductoDTO update(Long id, ProductoDTO productoDTO, List<MultipartFile> imagenes, Long categoriaId) throws IOException {
+    public ProductoDTO update(Long id, ProductoDTO productoDTO, List<MultipartFile> imagenes, Long categoriaId, List<Long> featureIds) throws IOException {
         Optional<Producto> existing = productoRepository.findById(id);
         if (!existing.isPresent()) {
             return null;
@@ -139,6 +171,17 @@ public class ProductoService {
             toUpdate.setCategoria(categoria.orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada")));
         } else {
             toUpdate.setCategoria(null);
+        }
+
+        // Actualizar características
+        if (featureIds != null) {
+            Set<Feature> features = featureIds.stream()
+                    .map(fid -> featureRepository.findById(fid)
+                            .orElseThrow(() -> new IllegalArgumentException("Característica no encontrada: " + fid)))
+                    .collect(Collectors.toSet());
+            toUpdate.setFeatures(features);
+        } else {
+            toUpdate.setFeatures(null);
         }
 
         // Guardar producto
@@ -185,6 +228,18 @@ public class ProductoService {
         }).toList();
         result.setImagenes(imagenDTOs);
 
+        // Mapear características
+        if (toUpdate.getFeatures() != null) {
+            Set<FeatureDTO> featureDTOs = toUpdate.getFeatures().stream().map(feature -> {
+                FeatureDTO featureDTO = new FeatureDTO();
+                featureDTO.setId(feature.getId());
+                featureDTO.setNombre(feature.getNombre());
+                featureDTO.setIcono(feature.getIcono());
+                return featureDTO;
+            }).collect(Collectors.toSet());
+            result.setFeatures(featureDTOs);
+        }
+
         return result;
     }
 
@@ -193,10 +248,11 @@ public class ProductoService {
      * @param productoDTO Datos del producto (nombre, descripción)
      * @param imagenes Imágenes (opcional)
      * @param categoriaId ID de la categoría (opcional)
+     * @param featureIds IDs de las características (opcional)
      * @return ProductoDTO creado
      * @throws IOException si falla el manejo de imágenes
      */
-    public ProductoDTO create(ProductoDTO productoDTO, List<MultipartFile> imagenes, Long categoriaId) throws IOException {
+    public ProductoDTO create(ProductoDTO productoDTO, List<MultipartFile> imagenes, Long categoriaId, List<Long> featureIds) throws IOException {
         Producto producto = new Producto();
         producto.setNombre(productoDTO.getNombre());
         producto.setDescripcion(productoDTO.getDescripcion());
@@ -205,6 +261,15 @@ public class ProductoService {
         if (categoriaId != null) {
             Optional<Categoria> categoria = categoriaRepository.findById(categoriaId);
             producto.setCategoria(categoria.orElseThrow(() -> new IllegalArgumentException("Categoría no encontrada")));
+        }
+
+        // Asignar características
+        if (featureIds != null) {
+            Set<Feature> features = featureIds.stream()
+                    .map(fid -> featureRepository.findById(fid)
+                            .orElseThrow(() -> new IllegalArgumentException("Característica no encontrada: " + fid)))
+                    .collect(Collectors.toSet());
+            producto.setFeatures(features);
         }
 
         // Guardar producto
@@ -247,6 +312,18 @@ public class ProductoService {
             return imagenDTO;
         }).toList();
         result.setImagenes(imagenDTOs);
+
+        // Mapear características
+        if (producto.getFeatures() != null) {
+            Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
+                FeatureDTO featureDTO = new FeatureDTO();
+                featureDTO.setId(feature.getId());
+                featureDTO.setNombre(feature.getNombre());
+                featureDTO.setIcono(feature.getIcono());
+                return featureDTO;
+            }).collect(Collectors.toSet());
+            result.setFeatures(featureDTOs);
+        }
 
         return result;
     }

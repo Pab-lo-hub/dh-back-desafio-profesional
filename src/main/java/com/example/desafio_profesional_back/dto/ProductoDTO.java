@@ -1,9 +1,9 @@
 package com.example.desafio_profesional_back.dto;
 
-
 import lombok.Data;
 
 import java.util.List;
+import java.util.Set;
 
 @Data
 public class ProductoDTO {
@@ -12,6 +12,7 @@ public class ProductoDTO {
     private String descripcion;
     private CategoriaDTO categoria;
     private List<ImagenDTO> imagenes;
+    private Set<FeatureDTO> features;
 
     @Data
     public static class CategoriaDTO {

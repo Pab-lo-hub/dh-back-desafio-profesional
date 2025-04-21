@@ -1,10 +1,8 @@
 package com.example.desafio_profesional_back.dto;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
-@Getter
-@Setter
+@Data
 public class FeatureDTO {
     private Long id;
     private String nombre;

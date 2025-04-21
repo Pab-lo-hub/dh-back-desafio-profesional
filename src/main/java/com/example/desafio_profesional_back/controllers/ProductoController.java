@@ -88,19 +88,20 @@ public class ProductoController {
      * @param productoJson JSON con datos del producto (nombre, descripción)
      * @param imagenes Nuevas imágenes (opcional)
      * @param categoriaIdStr ID de la categoría (opcional)
+     * @param featureIds IDs de las características (opcional)
      * @return ProductoDTO actualizado o error
      */
     @PutMapping("/{id}")
-    //@PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateProducto(
             @PathVariable Long id,
             @RequestPart("producto") String productoJson,
             @RequestPart(value = "imagenes", required = false) List<MultipartFile> imagenes,
-            @RequestParam(value = "categoriaId", required = false) String categoriaIdStr) {
+            @RequestParam(value = "categoriaId", required = false) String categoriaIdStr,
+            @RequestParam(value = "featureIds", required = false) List<Long> featureIds) {
         try {
             ProductoDTO productoDTO = objectMapper.readValue(productoJson, ProductoDTO.class);
             Long categoriaId = parseCategoriaId(categoriaIdStr);
-            ProductoDTO updated = productoService.update(id, productoDTO, imagenes, categoriaId);
+            ProductoDTO updated = productoService.update(id, productoDTO, imagenes, categoriaId, featureIds);
             if (updated == null) {
                 return ResponseEntity.notFound().build();
             }
@@ -117,18 +118,19 @@ public class ProductoController {
      * @param productoJson JSON con datos del producto
      * @param imagenes Imágenes (opcional)
      * @param categoriaIdStr ID de la categoría (opcional)
+     * @param featureIds IDs de las características (opcional)
      * @return ProductoDTO creado
      */
     @PostMapping
-    //@PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createProducto(
             @RequestPart("producto") String productoJson,
             @RequestPart(value = "imagenes", required = false) List<MultipartFile> imagenes,
-            @RequestParam(value = "categoriaId", required = false) String categoriaIdStr) {
+            @RequestParam(value = "categoriaId", required = false) String categoriaIdStr,
+            @RequestParam(value = "featureIds", required = false) List<Long> featureIds) {
         try {
             ProductoDTO productoDTO = objectMapper.readValue(productoJson, ProductoDTO.class);
             Long categoriaId = parseCategoriaId(categoriaIdStr);
-            ProductoDTO created = productoService.create(productoDTO, imagenes, categoriaId);
+            ProductoDTO created = productoService.create(productoDTO, imagenes, categoriaId, featureIds);
             return ResponseEntity.status(HttpStatus.CREATED).body(created);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
@@ -143,7 +145,6 @@ public class ProductoController {
      * @return Respuesta vacía o error
      */
     @DeleteMapping("/{id}")
-    //@PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteProducto(@PathVariable Long id) {
         try {
             boolean deleted = productoService.delete(id);
