@@ -1,11 +1,12 @@
 package com.example.desafio_profesional_back.controllers;
 
+import com.example.desafio_profesional_back.dto.AvailabilityDTO;
 import com.example.desafio_profesional_back.dto.ProductoDTO;
-import com.example.desafio_profesional_back.models.Producto;
 import com.example.desafio_profesional_back.services.ProductoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -157,5 +159,26 @@ public class ProductoController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al eliminar el producto: " + e.getMessage());
         }
+    }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<ProductoDTO>> searchProducts(
+            @RequestParam(required = false) String query,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        List<ProductoDTO> results = productoService.searchProducts(query, startDate, endDate);
+        return ResponseEntity.ok(results);
+    }
+
+    @GetMapping("/suggest")
+    public ResponseEntity<List<String>> getProductSuggestions(@RequestParam String query) {
+        List<String> suggestions = productoService.getProductSuggestions(query);
+        return ResponseEntity.ok(suggestions);
+    }
+
+    @GetMapping("/{id}/availability")
+    public ResponseEntity<List<AvailabilityDTO>> getProductAvailability(@PathVariable Long id) {
+        List<AvailabilityDTO> availability = productoService.getProductAvailability(id);
+        return ResponseEntity.ok(availability);
     }
 }

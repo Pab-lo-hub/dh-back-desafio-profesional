@@ -1,15 +1,10 @@
 package com.example.desafio_profesional_back.services;
 
+import com.example.desafio_profesional_back.dto.AvailabilityDTO;
 import com.example.desafio_profesional_back.dto.ProductoDTO;
 import com.example.desafio_profesional_back.dto.FeatureDTO;
-import com.example.desafio_profesional_back.models.Categoria;
-import com.example.desafio_profesional_back.models.Feature;
-import com.example.desafio_profesional_back.models.Imagen;
-import com.example.desafio_profesional_back.models.Producto;
-import com.example.desafio_profesional_back.repositories.CategoriaRepository;
-import com.example.desafio_profesional_back.repositories.FeatureRepository;
-import com.example.desafio_profesional_back.repositories.ImagenRepository;
-import com.example.desafio_profesional_back.repositories.ProductoRepository;
+import com.example.desafio_profesional_back.models.*;
+import com.example.desafio_profesional_back.repositories.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -46,6 +42,9 @@ public class ProductoService {
 
     @Autowired
     private FeatureRepository featureRepository;
+
+    @Autowired
+    private ReservaRepository reservaRepository;
 
     /**
      * Obtiene todos los productos como DTOs.
@@ -341,5 +340,94 @@ public class ProductoService {
         imagenRepository.deleteByProductoId(id);
         productoRepository.deleteById(id);
         return true;
+    }
+
+    public List<ProductoDTO> searchProducts(String query, LocalDate startDate, LocalDate endDate) {
+        log.info("Buscando productos con query: {}, startDate: {}, endDate: {}", query, startDate, endDate);
+        List<Producto> productos;
+        if (query == null || query.trim().isEmpty()) {
+            productos = productoRepository.findAll();
+        } else {
+            productos = productoRepository.findByNombreContainingIgnoreCase(query);
+        }
+
+        if (startDate != null && endDate != null) {
+            productos = productos.stream()
+                    .filter(p -> isProductAvailable(p.getId(), startDate, endDate))
+                    .collect(Collectors.toList());
+        }
+
+        return productos.stream()
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<String> getProductSuggestions(String query) {
+        log.info("Obteniendo sugerencias para query: {}", query);
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+        return productoRepository.findByNombreContainingIgnoreCase(query)
+                .stream()
+                .map(Producto::getNombre)
+                .limit(5)
+                .collect(Collectors.toList());
+    }
+
+    public List<AvailabilityDTO> getProductAvailability(Long productId) {
+        log.info("Obteniendo disponibilidad para producto ID: {}", productId);
+        List<Reserva> reservas = reservaRepository.findByProductoIdAndEstado(productId, "DISPONIBLE");
+        return reservas.stream()
+                .map(reserva -> {
+                    AvailabilityDTO dto = new AvailabilityDTO();
+                    dto.setId(reserva.getId());
+                    dto.setFechaInicio(reserva.getFechaInicio());
+                    dto.setFechaFin(reserva.getFechaFin());
+                    dto.setEstado(reserva.getEstado());
+                    return dto;
+                })
+                .collect(Collectors.toList());
+    }
+
+    private boolean isProductAvailable(Long productId, LocalDate startDate, LocalDate endDate) {
+        List<Reserva> reservas = reservaRepository.findByProductoIdAndFechaInicioGreaterThanEqualAndFechaFinLessThanEqual(
+                productId, startDate, endDate);
+        return reservas.stream().anyMatch(r -> r.getEstado().equals("DISPONIBLE"));
+    }
+
+    private ProductoDTO convertToDTO(Producto producto) {
+        ProductoDTO dto = new ProductoDTO();
+        dto.setId(producto.getId());
+        dto.setNombre(producto.getNombre());
+        dto.setDescripcion(producto.getDescripcion());
+
+        if (producto.getCategoria() != null) {
+            ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
+            categoriaDTO.setId(producto.getCategoria().getId());
+            categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
+            dto.setCategoria(categoriaDTO);
+        }
+
+        List<Imagen> imagenes = imagenRepository.findByProductoId(producto.getId());
+        List<ProductoDTO.ImagenDTO> imagenDTOs = imagenes.stream().map(imagen -> {
+            ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
+            imagenDTO.setId(imagen.getId());
+            imagenDTO.setRuta(imagen.getRuta());
+            return imagenDTO;
+        }).toList();
+        dto.setImagenes(imagenDTOs);
+
+        if (producto.getFeatures() != null) {
+            Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
+                FeatureDTO featureDTO = new FeatureDTO();
+                featureDTO.setId(feature.getId());
+                featureDTO.setNombre(feature.getNombre());
+                featureDTO.setIcono(feature.getIcono());
+                return featureDTO;
+            }).collect(Collectors.toSet());
+            dto.setFeatures(featureDTOs);
+        }
+
+        return dto;
     }
 }
