@@ -105,6 +105,7 @@ public class ProductoService {
     public ProductoDTO findById(Long id) {
         Optional<Producto> productoOpt = productoRepository.findById(id);
         if (!productoOpt.isPresent()) {
+            log.warn("Producto no encontrado: {}", id);
             return null;
         }
         Producto producto = productoOpt.get();
