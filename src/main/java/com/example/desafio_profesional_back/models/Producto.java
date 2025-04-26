@@ -28,6 +28,12 @@ public class Producto {
     private String nombre;
     private String descripcion;
 
+    @Column
+    private String precio;
+
+    @Column(length = 1000)
+    private String politicas;
+
     @OneToMany(mappedBy = "producto", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference // Serializa esta parte de la relación
     private List<Imagen> imagenes = new ArrayList<>(); // Lista de imágenes asociadas

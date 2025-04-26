@@ -1,5 +1,6 @@
 package com.example.desafio_profesional_back.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.util.List;
@@ -10,9 +11,12 @@ public class ProductoDTO {
     private Long id;
     private String nombre;
     private String descripcion;
+    @JsonProperty("price")
+    private String precio;
     private CategoriaDTO categoria;
     private List<ImagenDTO> imagenes;
     private Set<FeatureDTO> features;
+    private String politicas;
 
     @Data
     public static class CategoriaDTO {
