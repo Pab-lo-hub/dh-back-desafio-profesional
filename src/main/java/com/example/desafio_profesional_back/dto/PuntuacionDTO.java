@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class PuntuacionDTO {
     private Long id;
-    private Long userId;
-    private Long productId;
-    private Integer rating;
+    private Long productoId;
+    private Long usuarioId;
+    private Integer estrellas;
 }

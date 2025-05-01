@@ -3,6 +3,7 @@ package com.example.desafio_profesional_back.controllers;
 import com.example.desafio_profesional_back.dto.AvailabilityDTO;
 import com.example.desafio_profesional_back.dto.PoliticaDTO;
 import com.example.desafio_profesional_back.dto.ProductoDTO;
+import com.example.desafio_profesional_back.dto.PuntuacionDTO;
 import com.example.desafio_profesional_back.services.ProductoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -197,5 +198,22 @@ public class ProductoController {
     public ResponseEntity<List<AvailabilityDTO>> getProductAvailability(@PathVariable Long id) {
         List<AvailabilityDTO> availability = productoService.getProductAvailability(id);
         return ResponseEntity.ok(availability);
+    }
+
+    @GetMapping("/{id}/can-rate")
+    public ResponseEntity<Boolean> canUserRateProducto(@PathVariable Long id, @RequestParam Long usuarioId) {
+        return ResponseEntity.ok(productoService.canUserRateProducto(id, usuarioId));
+    }
+
+    @PostMapping("/{id}/puntuaciones")
+    public ResponseEntity<PuntuacionDTO> createPuntuacion(@PathVariable Long id, @RequestBody PuntuacionDTO puntuacionDTO) {
+        puntuacionDTO.setProductoId(id);
+        PuntuacionDTO created = productoService.createPuntuacion(puntuacionDTO);
+        return ResponseEntity.ok(created);
+    }
+
+    @GetMapping("/{productoId}/puntuaciones")
+    public List<PuntuacionDTO> getPuntuaciones(@PathVariable Long productoId) {
+        return productoService.getPuntuacionesByProductoId(productoId);
     }
 }

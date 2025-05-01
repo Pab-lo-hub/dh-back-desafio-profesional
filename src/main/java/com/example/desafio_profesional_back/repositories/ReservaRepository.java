@@ -21,4 +21,6 @@ public interface ReservaRepository extends JpaRepository<Reserva, Long> {
     @Query("SELECT CASE WHEN COUNT(r) > 0 THEN true ELSE false END " +
             "FROM Reserva r WHERE r.user = :user AND r.producto = :producto")
     boolean existsByUserAndProducto(@Param("user") User user, @Param("producto") Producto producto);
+
+    List<Reserva> findByProductoIdAndUserId(Long productoId, Long userId);
 }

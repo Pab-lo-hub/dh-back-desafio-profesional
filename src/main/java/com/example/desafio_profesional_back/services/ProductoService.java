@@ -3,6 +3,7 @@ package com.example.desafio_profesional_back.services;
 import com.example.desafio_profesional_back.dto.AvailabilityDTO;
 import com.example.desafio_profesional_back.dto.FeatureDTO;
 import com.example.desafio_profesional_back.dto.PoliticaDTO;
+import com.example.desafio_profesional_back.dto.PuntuacionDTO;
 import com.example.desafio_profesional_back.dto.ProductoDTO;
 import com.example.desafio_profesional_back.models.*;
 import com.example.desafio_profesional_back.repositories.*;
@@ -49,6 +50,12 @@ public class ProductoService {
 
     @Autowired
     private PoliticaRepository politicaRepository;
+
+    @Autowired
+    private PuntuacionRepository puntuacionRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     /**
      * Obtiene todos los productos como DTOs.
@@ -449,5 +456,75 @@ public class ProductoService {
             dto.setDescripcion(politica.getDescripcion());
             return dto;
         }).collect(Collectors.toList());
+    }
+
+    /**
+     * Obtiene las puntuaciones de un producto por su ID.
+     * @param productoId ID del producto
+     * @return Lista de PuntuacionDTO
+     */
+    public List<PuntuacionDTO> getPuntuacionesByProductoId(Long productoId) {
+        List<Puntuacion> puntuaciones = puntuacionRepository.findByProductoId(productoId);
+        return puntuaciones.stream().map(puntuacion -> {
+            PuntuacionDTO dto = new PuntuacionDTO();
+            dto.setId(puntuacion.getId());
+            dto.setProductoId(puntuacion.getProducto().getId());
+            dto.setUsuarioId(puntuacion.getUsuario().getId());
+            dto.setEstrellas(puntuacion.getEstrellas());
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    /**
+     * Verifica si un usuario puede puntuar un producto (si tiene una reserva finalizada).
+     * @param productoId ID del producto
+     * @param usuarioId ID del usuario
+     * @return true si puede puntuar, false en caso contrario
+     */
+    public boolean canUserRateProducto(Long productoId, Long usuarioId) {
+        List<Reserva> reservas = reservaRepository.findByProductoIdAndUserId(productoId, usuarioId);
+        return reservas.stream().anyMatch(r -> r.getEstado().equals("FINALIZADA"));
+    }
+
+    /**
+     * Crea una nueva puntuación para un producto.
+     * @param puntuacionDTO Datos de la puntuación
+     * @return PuntuacionDTO creado
+     * @throws IllegalArgumentException si el usuario no puede puntuar o ya puntuó
+     */
+    public PuntuacionDTO createPuntuacion(PuntuacionDTO puntuacionDTO) {
+        Optional<Producto> productoOpt = productoRepository.findById(puntuacionDTO.getProductoId());
+        Optional<User> usuarioOpt = userRepository.findById(puntuacionDTO.getUsuarioId());
+
+        if (!productoOpt.isPresent() || !usuarioOpt.isPresent()) {
+            throw new IllegalArgumentException("Producto o usuario no encontrado");
+        }
+
+        if (!canUserRateProducto(puntuacionDTO.getProductoId(), puntuacionDTO.getUsuarioId())) {
+            throw new IllegalArgumentException("El usuario no tiene una reserva finalizada para este producto");
+        }
+
+        if (puntuacionRepository.existsByProductoIdAndUsuarioId(puntuacionDTO.getProductoId(), puntuacionDTO.getUsuarioId())) {
+            throw new IllegalArgumentException("El usuario ya puntuó este producto");
+        }
+
+        if (puntuacionDTO.getEstrellas() < 1 || puntuacionDTO.getEstrellas() > 5) {
+            throw new IllegalArgumentException("La puntuación debe estar entre 1 y 5 estrellas");
+        }
+
+        Puntuacion puntuacion = new Puntuacion();
+        puntuacion.setProducto(productoOpt.get());
+        puntuacion.setUsuario(usuarioOpt.get());
+        puntuacion.setEstrellas(puntuacionDTO.getEstrellas());
+
+        puntuacionRepository.save(puntuacion);
+
+        PuntuacionDTO result = new PuntuacionDTO();
+        result.setId(puntuacion.getId());
+        result.setProductoId(puntuacion.getProducto().getId());
+        result.setUsuarioId(puntuacion.getUsuario().getId());
+        result.setEstrellas(puntuacion.getEstrellas());
+
+        return result;
     }
 }

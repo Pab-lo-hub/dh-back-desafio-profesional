@@ -16,19 +16,19 @@ public class Reserva {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = true)
-    private User user;
-
-    @ManyToOne
-    @JoinColumn(name = "producto_id", nullable = true)
+    @JoinColumn(name = "producto_id", nullable = false)
     private Producto producto;
 
-    @Column(name = "fecha_inicio", nullable = true)
+    @ManyToOne
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private User user;
+
+    @Column(name = "fecha_inicio", nullable = false)
     private LocalDate fechaInicio;
 
-    @Column(name = "fecha_fin", nullable = true)
+    @Column(name = "fecha_fin", nullable = false)
     private LocalDate fechaFin;
 
-    @Column(nullable = true)
+    @Column(nullable = false)
     private String estado;
 }

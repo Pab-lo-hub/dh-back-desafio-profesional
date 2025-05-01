@@ -14,13 +14,13 @@ public class Puntuacion {
     private Long id;
 
     @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User usuario;
-
-    @ManyToOne
     @JoinColumn(name = "producto_id", nullable = false)
     private Producto producto;
 
+    @ManyToOne
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private User usuario;
+
     @Column(nullable = false)
-    private Integer rating;
+    private Integer estrellas; // 1 a 5
 }
