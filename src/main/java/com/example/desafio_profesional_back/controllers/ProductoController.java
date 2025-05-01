@@ -1,6 +1,7 @@
 package com.example.desafio_profesional_back.controllers;
 
 import com.example.desafio_profesional_back.dto.AvailabilityDTO;
+import com.example.desafio_profesional_back.dto.PoliticaDTO;
 import com.example.desafio_profesional_back.dto.ProductoDTO;
 import com.example.desafio_profesional_back.services.ProductoService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -65,6 +66,22 @@ public class ProductoController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al cargar el producto: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene las políticas de un producto por su ID.
+     * @param id ID del producto
+     * @return Lista de PoliticaDTO o error
+     */
+    @GetMapping("/{id}/politicas")
+    public ResponseEntity<?> getPoliticasByProductoId(@PathVariable Long id) {
+        try {
+            List<PoliticaDTO> politicas = productoService.getPoliticasByProductoId(id);
+            return ResponseEntity.ok(politicas);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al cargar las políticas: " + e.getMessage());
         }
     }
 

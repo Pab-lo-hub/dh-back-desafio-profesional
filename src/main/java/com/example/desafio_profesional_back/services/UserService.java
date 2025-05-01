@@ -26,20 +26,6 @@ public class UserService {
         return users.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
-    public UserDTO updateRole(Long id, String role) {
-        log.info("Actualizando rol del usuario con ID: {} a {}", id, role);
-        Optional<User> userOpt = userRepository.findById(id);
-        if (!userOpt.isPresent()) {
-            log.warn("Usuario no encontrado: {}", id);
-            throw new IllegalArgumentException("Usuario no encontrado");
-        }
-        User user = userOpt.get();
-        user.setRole(role);
-        User updated = userRepository.save(user);
-        log.info("Usuario actualizado: {}", updated);
-        return convertToDTO(updated);
-    }
-
     private UserDTO convertToDTO(User user) {
         UserDTO dto = new UserDTO();
         dto.setId(user.getId());
@@ -48,5 +34,30 @@ public class UserService {
         dto.setEmail(user.getEmail());
         dto.setRole(user.getRole());
         return dto;
+    }
+
+    public UserDTO updateRole(Long id, String role) {
+        User user = userRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Usuario no encontrado"));
+        user.setRole(role);
+        userRepository.save(user);
+        return new UserDTO(
+                user.getId(),
+                user.getEmail(),
+                user.getNombre(),
+                user.getApellido(),
+                user.getRole()
+        );
+    }
+
+    public User authenticate(String email, String password) {
+        Optional<User> userOptional = userRepository.findByEmail(email);
+        if (userOptional.isPresent()) {
+            User user = userOptional.get();
+            if (user.getPassword().equals(password)) { // Simplificado, usar BCrypt en producción
+                return user;
+            }
+        }
+        return null;
     }
 }

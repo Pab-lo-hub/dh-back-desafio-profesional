@@ -1,6 +1,7 @@
 package com.example.desafio_profesional_back.controllers;
 
 import com.example.desafio_profesional_back.dto.UserDTO;
+import com.example.desafio_profesional_back.models.User;
 import com.example.desafio_profesional_back.services.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +19,6 @@ public class UserController {
     private UserService userService;
 
     @GetMapping
-
     public ResponseEntity<List<UserDTO>> getAllUsers() {
         List<UserDTO> users = userService.findAll();
         return ResponseEntity.ok(users);
@@ -35,4 +35,45 @@ public class UserController {
             return ResponseEntity.status(500).body("Error al actualizar el rol");
         }
     }
+
+    @PostMapping("/login")
+    public ResponseEntity<?> login(@RequestBody LoginRequest loginRequest) {
+        try {
+            User user = userService.authenticate(loginRequest.getEmail(), loginRequest.getPassword());
+            if (user != null) {
+                return ResponseEntity.ok(new UserDTO(
+                        user.getId(),
+                        user.getEmail(),
+                        user.getNombre(),
+                        user.getApellido(),
+                        user.getRole()
+                ));
+            }
+            return ResponseEntity.status(401).body("Credenciales inválidas");
+        } catch (Exception e) {
+            return ResponseEntity.status(500).body("Error al autenticar");
+        }
+    }
+}
+
+class LoginRequest {
+    private String email;
+    private String password;
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    public String getPassword() {
+        return password;
+    }
+
+    public void setPassword(String password) {
+        this.password = password;
+    }
+
 }

@@ -1,8 +1,9 @@
 package com.example.desafio_profesional_back.services;
 
 import com.example.desafio_profesional_back.dto.AvailabilityDTO;
-import com.example.desafio_profesional_back.dto.ProductoDTO;
 import com.example.desafio_profesional_back.dto.FeatureDTO;
+import com.example.desafio_profesional_back.dto.PoliticaDTO;
+import com.example.desafio_profesional_back.dto.ProductoDTO;
 import com.example.desafio_profesional_back.models.*;
 import com.example.desafio_profesional_back.repositories.*;
 import lombok.RequiredArgsConstructor;
@@ -45,6 +46,9 @@ public class ProductoService {
 
     @Autowired
     private ReservaRepository reservaRepository;
+
+    @Autowired
+    private PoliticaRepository politicaRepository;
 
     /**
      * Obtiene todos los productos como DTOs.
@@ -429,5 +433,21 @@ public class ProductoService {
         }
 
         return dto;
+    }
+
+    /**
+     * Obtiene las políticas de un producto por su ID.
+     * @param productoId ID del producto
+     * @return Lista de PoliticaDTO
+     */
+    public List<PoliticaDTO> getPoliticasByProductoId(Long productoId) {
+        List<Politica> politicas = politicaRepository.findByProductoId(productoId);
+        return politicas.stream().map(politica -> {
+            PoliticaDTO dto = new PoliticaDTO();
+            dto.setId(politica.getId());
+            dto.setTitulo(politica.getTitulo());
+            dto.setDescripcion(politica.getDescripcion());
+            return dto;
+        }).collect(Collectors.toList());
     }
 }
