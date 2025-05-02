@@ -4,12 +4,17 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * An entity class represents a table in a relational database
+ */
 @Entity
 @Table(name = "puntuaciones")
 @Getter
 @Setter
 public class Puntuacion {
+    /*@Id: Representa a un primary key de nuestra tabla */
     @Id
+    /*@GeneratedValue: Representa a un campo autogereado (secuencial), equivalente a un campo identity de una sentencia SQL.*/
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
@@ -19,8 +24,8 @@ public class Puntuacion {
 
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)
-    private User usuario;
+    private User user;
 
     @Column(nullable = false)
-    private Integer estrellas; // 1 a 5
+    private int estrellas;
 }

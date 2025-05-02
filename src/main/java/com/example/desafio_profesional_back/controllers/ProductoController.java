@@ -5,6 +5,7 @@ import com.example.desafio_profesional_back.dto.PoliticaDTO;
 import com.example.desafio_profesional_back.dto.ProductoDTO;
 import com.example.desafio_profesional_back.dto.PuntuacionDTO;
 import com.example.desafio_profesional_back.services.ProductoService;
+import com.example.desafio_profesional_back.services.PuntuacionService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import lombok.RequiredArgsConstructor;
@@ -31,6 +32,9 @@ public class ProductoController {
 
     @Autowired
     private ProductoService productoService;
+
+    @Autowired
+    private PuntuacionService puntuacionService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -179,6 +183,13 @@ public class ProductoController {
         }
     }
 
+    /**
+     * Busca productos por nombre y disponibilidad.
+     * @param query Nombre del producto (opcional)
+     * @param startDate Fecha de inicio (opcional)
+     * @param endDate Fecha de fin (opcional)
+     * @return Lista de ProductoDTO
+     */
     @GetMapping("/search")
     public ResponseEntity<List<ProductoDTO>> searchProducts(
             @RequestParam(required = false) String query,
@@ -188,32 +199,82 @@ public class ProductoController {
         return ResponseEntity.ok(results);
     }
 
+    /**
+     * Obtiene sugerencias de productos basadas en el nombre.
+     * @param query Nombre parcial del producto
+     * @return Lista de nombres de productos
+     */
     @GetMapping("/suggest")
     public ResponseEntity<List<String>> getProductSuggestions(@RequestParam String query) {
         List<String> suggestions = productoService.getProductSuggestions(query);
         return ResponseEntity.ok(suggestions);
     }
 
+    /**
+     * Obtiene la disponibilidad de un producto.
+     * @param id ID del producto
+     * @return Lista de AvailabilityDTO
+     */
     @GetMapping("/{id}/availability")
     public ResponseEntity<List<AvailabilityDTO>> getProductAvailability(@PathVariable Long id) {
         List<AvailabilityDTO> availability = productoService.getProductAvailability(id);
         return ResponseEntity.ok(availability);
     }
 
+    /**
+     * Verifica si un usuario puede puntuar un producto.
+     * @param id ID del producto
+     * @param usuarioId ID del usuario
+     * @return true si puede puntuar, false en caso contrario
+     */
     @GetMapping("/{id}/can-rate")
-    public ResponseEntity<Boolean> canUserRateProducto(@PathVariable Long id, @RequestParam Long usuarioId) {
-        return ResponseEntity.ok(productoService.canUserRateProducto(id, usuarioId));
+    public ResponseEntity<?> canUserRateProducto(
+            @PathVariable Long id,
+            @RequestParam Long usuarioId) {
+        try {
+            boolean canRate = productoService.canUserRateProducto(id, usuarioId);
+            return ResponseEntity.ok(canRate);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al verificar puntuación: " + e.getMessage());
+        }
     }
 
+    /**
+     * Crea una nueva puntuación para un producto.
+     * @param id ID del producto
+     * @param puntuacionDTO Datos de la puntuación
+     * @return PuntuacionDTO creado
+     */
     @PostMapping("/{id}/puntuaciones")
-    public ResponseEntity<PuntuacionDTO> createPuntuacion(@PathVariable Long id, @RequestBody PuntuacionDTO puntuacionDTO) {
-        puntuacionDTO.setProductoId(id);
-        PuntuacionDTO created = productoService.createPuntuacion(puntuacionDTO);
-        return ResponseEntity.ok(created);
+    public ResponseEntity<?> createPuntuacion(
+            @PathVariable Long id,
+            @RequestBody PuntuacionDTO puntuacionDTO) {
+        try {
+            puntuacionDTO.setProductoId(id);
+            PuntuacionDTO created = puntuacionService.addPuntuacion(puntuacionDTO);
+            return ResponseEntity.ok(created);
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al crear puntuación: " + e.getMessage());
+        }
     }
 
+    /**
+     * Obtiene las puntuaciones de un producto.
+     * @param productoId ID del producto
+     * @return Lista de PuntuacionDTO
+     */
     @GetMapping("/{productoId}/puntuaciones")
-    public List<PuntuacionDTO> getPuntuaciones(@PathVariable Long productoId) {
-        return productoService.getPuntuacionesByProductoId(productoId);
+    public ResponseEntity<?> getPuntuaciones(@PathVariable Long productoId) {
+        try {
+            List<PuntuacionDTO> puntuaciones = productoService.getPuntuacionesByProductoId(productoId);
+            return ResponseEntity.ok(puntuaciones);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al cargar puntuaciones: " + e.getMessage());
+        }
     }
 }

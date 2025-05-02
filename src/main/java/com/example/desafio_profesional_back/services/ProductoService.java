@@ -54,9 +54,6 @@ public class ProductoService {
     @Autowired
     private PuntuacionRepository puntuacionRepository;
 
-    @Autowired
-    private UserRepository userRepository;
-
     /**
      * Obtiene todos los productos como DTOs.
      * @return Lista de ProductoDTO
@@ -353,6 +350,13 @@ public class ProductoService {
         return true;
     }
 
+    /**
+     * Busca productos por nombre y disponibilidad.
+     * @param query Nombre del producto (opcional)
+     * @param startDate Fecha de inicio (opcional)
+     * @param endDate Fecha de fin (opcional)
+     * @return Lista de ProductoDTO
+     */
     public List<ProductoDTO> searchProducts(String query, LocalDate startDate, LocalDate endDate) {
         log.info("Buscando productos con query: {}, startDate: {}, endDate: {}", query, startDate, endDate);
         List<Producto> productos;
@@ -373,6 +377,11 @@ public class ProductoService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Obtiene sugerencias de productos basadas en el nombre.
+     * @param query Nombre parcial del producto
+     * @return Lista de nombres de productos
+     */
     public List<String> getProductSuggestions(String query) {
         log.info("Obteniendo sugerencias para query: {}", query);
         if (query == null || query.trim().isEmpty()) {
@@ -385,27 +394,77 @@ public class ProductoService {
                 .collect(Collectors.toList());
     }
 
+    /**
+     * Obtiene la disponibilidad de un producto.
+     * @param productId ID del producto
+     * @return Lista de AvailabilityDTO con fechas disponibles
+     */
     public List<AvailabilityDTO> getProductAvailability(Long productId) {
         log.info("Obteniendo disponibilidad para producto ID: {}", productId);
-        List<Reserva> reservas = reservaRepository.findByProductoIdAndEstado(productId, "DISPONIBLE");
-        return reservas.stream()
-                .map(reserva -> {
-                    AvailabilityDTO dto = new AvailabilityDTO();
-                    dto.setId(reserva.getId());
-                    dto.setFechaInicio(reserva.getFechaInicio());
-                    dto.setFechaFin(reserva.getFechaFin());
-                    dto.setEstado(reserva.getEstado());
-                    return dto;
-                })
-                .collect(Collectors.toList());
+        List<Reserva> reservas = reservaRepository.findByProductoIdAndEstado(productId, "CONFIRMADA");
+        List<AvailabilityDTO> availability = new ArrayList<>();
+
+        LocalDate today = LocalDate.now();
+        LocalDate end = today.plusYears(1);
+        LocalDate current = today;
+
+        while (!current.isAfter(end)) {
+            boolean isAvailable = true;
+            for (Reserva reserva : reservas) {
+                if (!reserva.getFechaFin().isBefore(current) && !reserva.getFechaInicio().isAfter(current)) {
+                    isAvailable = false;
+                    break;
+                }
+            }
+            if (isAvailable) {
+                LocalDate rangeStart = current;
+                LocalDate rangeEnd = current;
+                while (rangeEnd.isBefore(end)) {
+                    LocalDate nextDay = rangeEnd.plusDays(1);
+                    boolean nextDayAvailable = true;
+                    for (Reserva reserva : reservas) {
+                        if (!reserva.getFechaFin().isBefore(nextDay) && !reserva.getFechaInicio().isAfter(nextDay)) {
+                            nextDayAvailable = false;
+                            break;
+                        }
+                    }
+                    if (!nextDayAvailable) {
+                        break;
+                    }
+                    rangeEnd = nextDay;
+                }
+                AvailabilityDTO dto = new AvailabilityDTO();
+                dto.setId(0L);
+                dto.setFechaInicio(rangeStart);
+                dto.setFechaFin(rangeEnd);
+                dto.setEstado("DISPONIBLE");
+                availability.add(dto);
+                current = rangeEnd.plusDays(1);
+            } else {
+                current = current.plusDays(1);
+            }
+        }
+        return availability;
     }
 
+    /**
+     * Verifica si un producto está disponible en un rango de fechas.
+     * @param productId ID del producto
+     * @param startDate Fecha de inicio
+     * @param endDate Fecha de fin
+     * @return true si está disponible, false en caso contrario
+     */
     private boolean isProductAvailable(Long productId, LocalDate startDate, LocalDate endDate) {
         List<Reserva> reservas = reservaRepository.findByProductoIdAndFechaInicioGreaterThanEqualAndFechaFinLessThanEqual(
                 productId, startDate, endDate);
-        return reservas.stream().anyMatch(r -> r.getEstado().equals("DISPONIBLE"));
+        return reservas.isEmpty();
     }
 
+    /**
+     * Convierte un Producto a ProductoDTO.
+     * @param producto Entidad Producto
+     * @return ProductoDTO
+     */
     private ProductoDTO convertToDTO(Producto producto) {
         ProductoDTO dto = new ProductoDTO();
         dto.setId(producto.getId());
@@ -469,7 +528,7 @@ public class ProductoService {
             PuntuacionDTO dto = new PuntuacionDTO();
             dto.setId(puntuacion.getId());
             dto.setProductoId(puntuacion.getProducto().getId());
-            dto.setUsuarioId(puntuacion.getUsuario().getId());
+            dto.setUsuarioId(puntuacion.getUser().getId());
             dto.setEstrellas(puntuacion.getEstrellas());
             return dto;
         }).collect(Collectors.toList());
@@ -482,49 +541,8 @@ public class ProductoService {
      * @return true si puede puntuar, false en caso contrario
      */
     public boolean canUserRateProducto(Long productoId, Long usuarioId) {
-        List<Reserva> reservas = reservaRepository.findByProductoIdAndUserId(productoId, usuarioId);
-        return reservas.stream().anyMatch(r -> r.getEstado().equals("FINALIZADA"));
-    }
-
-    /**
-     * Crea una nueva puntuación para un producto.
-     * @param puntuacionDTO Datos de la puntuación
-     * @return PuntuacionDTO creado
-     * @throws IllegalArgumentException si el usuario no puede puntuar o ya puntuó
-     */
-    public PuntuacionDTO createPuntuacion(PuntuacionDTO puntuacionDTO) {
-        Optional<Producto> productoOpt = productoRepository.findById(puntuacionDTO.getProductoId());
-        Optional<User> usuarioOpt = userRepository.findById(puntuacionDTO.getUsuarioId());
-
-        if (!productoOpt.isPresent() || !usuarioOpt.isPresent()) {
-            throw new IllegalArgumentException("Producto o usuario no encontrado");
-        }
-
-        if (!canUserRateProducto(puntuacionDTO.getProductoId(), puntuacionDTO.getUsuarioId())) {
-            throw new IllegalArgumentException("El usuario no tiene una reserva finalizada para este producto");
-        }
-
-        if (puntuacionRepository.existsByProductoIdAndUsuarioId(puntuacionDTO.getProductoId(), puntuacionDTO.getUsuarioId())) {
-            throw new IllegalArgumentException("El usuario ya puntuó este producto");
-        }
-
-        if (puntuacionDTO.getEstrellas() < 1 || puntuacionDTO.getEstrellas() > 5) {
-            throw new IllegalArgumentException("La puntuación debe estar entre 1 y 5 estrellas");
-        }
-
-        Puntuacion puntuacion = new Puntuacion();
-        puntuacion.setProducto(productoOpt.get());
-        puntuacion.setUsuario(usuarioOpt.get());
-        puntuacion.setEstrellas(puntuacionDTO.getEstrellas());
-
-        puntuacionRepository.save(puntuacion);
-
-        PuntuacionDTO result = new PuntuacionDTO();
-        result.setId(puntuacion.getId());
-        result.setProductoId(puntuacion.getProducto().getId());
-        result.setUsuarioId(puntuacion.getUsuario().getId());
-        result.setEstrellas(puntuacion.getEstrellas());
-
-        return result;
+        List<Reserva> reservas = reservaRepository.findByProductoIdAndUsuarioId(productoId, usuarioId);
+        return reservas.stream().anyMatch(r -> r.getEstado().equals("FINALIZADA")) &&
+                !puntuacionRepository.existsByProducto_IdAndUser_Id(productoId, usuarioId);
     }
 }

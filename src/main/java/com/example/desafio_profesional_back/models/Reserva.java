@@ -6,7 +6,9 @@ import lombok.Setter;
 
 import java.time.LocalDate;
 
-@Entity
+/**
+ * An entity class represents a table in a relational database
+ */@Entity
 @Table(name = "reservas")
 @Getter
 @Setter
@@ -21,7 +23,7 @@ public class Reserva {
 
     @ManyToOne
     @JoinColumn(name = "usuario_id", nullable = false)
-    private User user;
+    private User usuario;
 
     @Column(name = "fecha_inicio", nullable = false)
     private LocalDate fechaInicio;

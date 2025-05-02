@@ -34,7 +34,7 @@ public class PuntuacionService {
         Producto producto = productoRepository.findById(puntuacionDTO.getProductoId())
                 .orElseThrow(() -> new RuntimeException("Producto no encontrado"));
 
-        if (puntuacionRepository.existsByProductoIdAndUsuarioId(puntuacionDTO.getProductoId(), puntuacionDTO.getUsuarioId())) {
+        if (puntuacionRepository.existsByProducto_IdAndUser_Id(puntuacionDTO.getProductoId(), puntuacionDTO.getUsuarioId())) {
             throw new RuntimeException("El usuario ya puntuó este producto");
         }
 
@@ -47,7 +47,7 @@ public class PuntuacionService {
         }
 
         Puntuacion puntuacion = new Puntuacion();
-        puntuacion.setUsuario(user);
+        puntuacion.setUser(user);
         puntuacion.setProducto(producto);
         puntuacion.setEstrellas(puntuacionDTO.getEstrellas());
         puntuacion = puntuacionRepository.save(puntuacion);
@@ -57,7 +57,7 @@ public class PuntuacionService {
     }
 
     public boolean hasReservation(Long usuarioId, Long productoId) {
-        List<Reserva> reservas = reservaRepository.findByProductoIdAndUserId(productoId, usuarioId);
+        List<Reserva> reservas = reservaRepository.findByProductoIdAndUsuarioId(productoId, usuarioId);
         return reservas.stream().anyMatch(r -> r.getEstado().equals("FINALIZADA"));
     }
 }
