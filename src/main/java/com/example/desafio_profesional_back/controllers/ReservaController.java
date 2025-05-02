@@ -4,7 +4,6 @@ import com.example.desafio_profesional_back.dto.ReservaDTO;
 import com.example.desafio_profesional_back.services.ReservaService;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -21,8 +20,8 @@ import java.util.List;
 @RequiredArgsConstructor
 @Validated
 public class ReservaController {
-    @Autowired
-    private ReservaService reservaService;
+
+    private final ReservaService reservaService;
 
     /**
      * Crea una nueva reserva.
@@ -58,6 +57,40 @@ public class ReservaController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al cargar las reservas: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene las reservas de un producto por su ID.
+     * @param productoId ID del producto
+     * @return Lista de ReservaDTO
+     */
+    @GetMapping("/producto/{productoId}")
+    public ResponseEntity<?> getReservasByProductoId(@PathVariable Long productoId) {
+        try {
+            List<ReservaDTO> reservas = reservaService.findByProductoId(productoId);
+            return ResponseEntity.ok(reservas);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al cargar las reservas: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Obtiene una reserva por su ID.
+     * @param id ID de la reserva
+     * @return ReservaDTO o error
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getReservaById(@PathVariable Long id) {
+        try {
+            ReservaDTO reserva = reservaService.findById(id);
+            return ResponseEntity.ok(reserva);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Error al cargar la reserva: " + e.getMessage());
         }
     }
 }

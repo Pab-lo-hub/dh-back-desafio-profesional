@@ -77,8 +77,8 @@ public class EmailService {
                 reservaDTO.getUsuarioNombre(),
                 reservaDTO.getId(),
                 reservaDTO.getProductoNombre(),
-                reservaDTO.getFechaInicio().toString(),
-                reservaDTO.getFechaFin().toString(),
+                reservaDTO.getStartDate().toString(),
+                reservaDTO.getEndDate().toString(),
                 reservaDTO.getEstado()
         );
     }

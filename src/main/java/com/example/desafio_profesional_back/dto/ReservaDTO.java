@@ -1,5 +1,6 @@
 package com.example.desafio_profesional_back.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -10,13 +11,14 @@ import java.time.LocalDate;
  */
 @Getter
 @Setter
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class ReservaDTO {
     private Long id;
-    private Long productoId;
-    private String productoNombre;
-    private Long usuarioId;
-    private String usuarioNombre;
-    private LocalDate fechaInicio;
-    private LocalDate fechaFin;
+    private Long userId;
+    private Long productId;
+    private LocalDate startDate;
+    private LocalDate endDate;
     private String estado;
+    private String productoNombre;
+    private String usuarioNombre;
 }

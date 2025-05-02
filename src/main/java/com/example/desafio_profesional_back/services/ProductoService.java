@@ -54,6 +54,9 @@ public class ProductoService {
     @Autowired
     private PuntuacionRepository puntuacionRepository;
 
+    // Ruta base para almacenar imágenes en el directorio estático
+    private static final String UPLOAD_DIR = "src/main/resources/static/uploads/";
+
     /**
      * Obtiene todos los productos como DTOs.
      * @return Lista de ProductoDTO
@@ -199,14 +202,16 @@ public class ProductoService {
         if (imagenes != null && !imagenes.isEmpty()) {
             // Eliminar imágenes existentes
             imagenRepository.deleteByProductoId(id);
-            // Guardar nuevas imágenes
+            // Guardar nuevas imágenes en src/main/resources/static/uploads/
             for (MultipartFile file : imagenes) {
                 String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-                Path filePath = Paths.get("uploads/" + fileName);
+                // Usar la ruta absoluta hacia el directorio estático
+                Path filePath = Paths.get(UPLOAD_DIR + fileName);
                 Files.createDirectories(filePath.getParent());
                 Files.write(filePath, file.getBytes());
                 Imagen imagen = new Imagen();
                 imagen.setProducto(toUpdate);
+                // Mantener la ruta relativa para el frontend
                 imagen.setRuta("/uploads/" + fileName);
                 imagenRepository.save(imagen);
             }
@@ -287,11 +292,13 @@ public class ProductoService {
         if (imagenes != null && !imagenes.isEmpty()) {
             for (MultipartFile file : imagenes) {
                 String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-                Path filePath = Paths.get("uploads/" + fileName);
+                // Usar la ruta absoluta hacia el directorio estático
+                Path filePath = Paths.get(UPLOAD_DIR + fileName);
                 Files.createDirectories(filePath.getParent());
                 Files.write(filePath, file.getBytes());
                 Imagen imagen = new Imagen();
                 imagen.setProducto(producto);
+                // Mantener la ruta relativa para el frontend
                 imagen.setRuta("/uploads/" + fileName);
                 imagenRepository.save(imagen);
             }

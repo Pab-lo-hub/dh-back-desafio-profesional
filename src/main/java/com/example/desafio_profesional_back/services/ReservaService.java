@@ -10,7 +10,6 @@ import com.example.desafio_profesional_back.repositories.UserRepository;
 import jakarta.mail.MessagingException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -18,51 +17,50 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-/**
- * Capa de servicio que contiene la lógica de negocio para reservas.
- */
 @Service
 @RequiredArgsConstructor
 @Slf4j
 public class ReservaService {
 
-    @Autowired
-    private ReservaRepository reservaRepository;
+    private final ReservaRepository reservaRepository;
+    private final ProductoRepository productoRepository;
+    private final UserRepository userRepository;
+    private final EmailService emailService;
 
-    @Autowired
-    private ProductoRepository productoRepository;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private EmailService emailService;
-
-    /**
-     * Crea una nueva reserva y envía un correo de confirmación al usuario.
-     * @param reservaDTO Datos de la reserva
-     * @return ReservaDTO creado
-     * @throws IllegalArgumentException si los datos son inválidos o el producto no está disponible
-     * @throws MessagingException si falla el envío del correo
-     */
     public ReservaDTO createReserva(ReservaDTO reservaDTO) throws MessagingException {
-        Optional<Producto> productoOpt = productoRepository.findById(reservaDTO.getProductoId());
-        Optional<User> usuarioOpt = userRepository.findById(reservaDTO.getUsuarioId());
+        log.debug("Creando reserva con DTO: {}", reservaDTO);
+
+        if (reservaDTO.getUserId() == null) {
+            log.error("El userId es nulo");
+            throw new IllegalArgumentException("El userId no puede ser nulo");
+        }
+        if (reservaDTO.getProductId() == null) {
+            log.error("El productId es nulo");
+            throw new IllegalArgumentException("El productId no puede ser nulo");
+        }
+
+        Optional<Producto> productoOpt = productoRepository.findById(reservaDTO.getProductId());
+        Optional<User> usuarioOpt = userRepository.findById(reservaDTO.getUserId());
 
         if (!productoOpt.isPresent() || !usuarioOpt.isPresent()) {
+            log.error("Producto o usuario no encontrado: productId={}, userId={}",
+                    reservaDTO.getProductId(), reservaDTO.getUserId());
             throw new IllegalArgumentException("Producto o usuario no encontrado");
         }
 
-        LocalDate fechaInicio = reservaDTO.getFechaInicio();
-        LocalDate fechaFin = reservaDTO.getFechaFin();
+        LocalDate fechaInicio = reservaDTO.getStartDate();
+        LocalDate fechaFin = reservaDTO.getEndDate();
 
         if (fechaInicio == null || fechaFin == null || fechaInicio.isAfter(fechaFin) || fechaInicio.isBefore(LocalDate.now())) {
+            log.error("Fechas inválidas: startDate={}, endDate={}", fechaInicio, fechaFin);
             throw new IllegalArgumentException("Fechas inválidas");
         }
 
         List<Reserva> reservas = reservaRepository.findByProductoIdAndFechaInicioGreaterThanEqualAndFechaFinLessThanEqual(
-                reservaDTO.getProductoId(), fechaInicio, fechaFin);
+                reservaDTO.getProductId(), fechaInicio, fechaFin);
         if (!reservas.isEmpty()) {
+            log.error("Producto no disponible para las fechas: productId={}, startDate={}, endDate={}",
+                    reservaDTO.getProductId(), fechaInicio, fechaFin);
             throw new IllegalStateException("El producto no está disponible en las fechas seleccionadas");
         }
 
@@ -73,47 +71,81 @@ public class ReservaService {
         reserva.setFechaFin(fechaFin);
         reserva.setEstado("PENDIENTE");
 
-        reservaRepository.save(reserva);
+        log.debug("Guardando reserva: {}", reserva);
+        Reserva saved = reservaRepository.save(reserva);
 
         ReservaDTO result = new ReservaDTO();
-        result.setId(reserva.getId());
-        result.setProductoId(reserva.getProducto().getId());
-        result.setUsuarioId(reserva.getUsuario().getId());
-        result.setFechaInicio(reserva.getFechaInicio());
-        result.setFechaFin(reserva.getFechaFin());
-        result.setEstado(reserva.getEstado());
+        result.setId(saved.getId());
+        result.setProductId(saved.getProducto().getId());
+        result.setUserId(saved.getUsuario().getId());
+        result.setStartDate(saved.getFechaInicio());
+        result.setEndDate(saved.getFechaFin());
+        result.setEstado(saved.getEstado());
+        result.setProductoNombre(saved.getProducto().getNombre());
+        result.setUsuarioNombre(saved.getUsuario().getNombre());
 
-        // Enviar correo de confirmación
         try {
             emailService.sendReservationEmail(result, usuarioOpt.get().getEmail());
-            log.info("Correo de confirmación enviado para la reserva ID: {}", reserva.getId());
+            log.info("Correo de confirmación enviado para la reserva ID: {}", saved.getId());
         } catch (MessagingException e) {
-            log.error("Error al enviar correo para la reserva ID: {}", reserva.getId(), e);
-            throw e; // Propagar la excepción para que el controlador la maneje
+            log.error("Error al enviar correo para la reserva ID: {}, pero la reserva se creó correctamente", saved.getId(), e);
         }
 
-        log.info("Reserva creada con ID: {}", reserva.getId());
+        log.info("Reserva creada con ID: {}", saved.getId());
         return result;
     }
 
-    /**
-     * Obtiene las reservas de un usuario por su ID.
-     * @param usuarioId ID del usuario
-     * @return Lista de ReservaDTO
-     */
     public List<ReservaDTO> findByUsuarioId(Long usuarioId) {
+        log.debug("Buscando reservas para usuario ID: {}", usuarioId);
         List<Reserva> reservas = reservaRepository.findByUsuarioId(usuarioId);
         return reservas.stream().map(reserva -> {
             ReservaDTO dto = new ReservaDTO();
             dto.setId(reserva.getId());
-            dto.setProductoId(reserva.getProducto().getId());
+            dto.setProductId(reserva.getProducto().getId());
             dto.setProductoNombre(reserva.getProducto().getNombre());
-            dto.setUsuarioId(reserva.getUsuario().getId());
+            dto.setUserId(reserva.getUsuario().getId());
             dto.setUsuarioNombre(reserva.getUsuario().getNombre());
-            dto.setFechaInicio(reserva.getFechaInicio());
-            dto.setFechaFin(reserva.getFechaFin());
+            dto.setStartDate(reserva.getFechaInicio());
+            dto.setEndDate(reserva.getFechaFin());
             dto.setEstado(reserva.getEstado());
             return dto;
         }).collect(Collectors.toList());
+    }
+
+    public List<ReservaDTO> findByProductoId(Long productoId) {
+        log.debug("Buscando reservas para producto ID: {}", productoId);
+        List<Reserva> reservas = reservaRepository.findByProductoIdAndEstado(productoId, "PENDIENTE");
+        return reservas.stream().map(reserva -> {
+            ReservaDTO dto = new ReservaDTO();
+            dto.setId(reserva.getId());
+            dto.setProductId(reserva.getProducto().getId());
+            dto.setProductoNombre(reserva.getProducto().getNombre());
+            dto.setUserId(reserva.getUsuario().getId());
+            dto.setUsuarioNombre(reserva.getUsuario().getNombre());
+            dto.setStartDate(reserva.getFechaInicio());
+            dto.setEndDate(reserva.getFechaFin());
+            dto.setEstado(reserva.getEstado());
+            return dto;
+        }).collect(Collectors.toList());
+    }
+
+    public ReservaDTO findById(Long id) {
+        log.debug("Buscando reserva con ID: {}", id);
+        Optional<Reserva> reservaOpt = reservaRepository.findById(id);
+        if (!reservaOpt.isPresent()) {
+            log.error("Reserva no encontrada: id={}", id);
+            throw new IllegalArgumentException("Reserva no encontrada");
+        }
+        Reserva reserva = reservaOpt.get();
+        ReservaDTO dto = new ReservaDTO();
+        dto.setId(reserva.getId());
+        dto.setProductId(reserva.getProducto().getId());
+        dto.setProductoNombre(reserva.getProducto().getNombre());
+        dto.setUserId(reserva.getUsuario().getId());
+        dto.setUsuarioNombre(reserva.getUsuario().getNombre());
+        dto.setStartDate(reserva.getFechaInicio());
+        dto.setEndDate(reserva.getFechaFin());
+        dto.setEstado(reserva.getEstado());
+        return dto;
     }
 }
