@@ -18,7 +18,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /**
  * Controlador para gestionar productos.
@@ -40,14 +42,27 @@ public class ProductoController {
     private ObjectMapper objectMapper;
 
     /**
-     * Obtiene todos los productos como DTOs.
+     * Obtiene todos los productos como DTOs, con soporte para filtrado por categorías.
+     * @param categoriaIdStr IDs de categorías separados por comas (opcional)
      * @return Lista de ProductoDTO o error
      */
     @GetMapping
-    public ResponseEntity<?> getAllProductos() {
+    public ResponseEntity<?> getAllProductos(
+            @RequestParam(value = "categoria_id", required = false) String categoriaIdStr) {
         try {
-            List<ProductoDTO> productos = productoService.findAll();
+            List<ProductoDTO> productos;
+            if (categoriaIdStr != null && !categoriaIdStr.isEmpty()) {
+                List<Long> categoriaIds = Arrays.stream(categoriaIdStr.split(","))
+                        .map(Long::parseLong)
+                        .collect(Collectors.toList());
+                productos = productoService.findByCategoriaIds(categoriaIds);
+            } else {
+                productos = productoService.findAll();
+            }
             return ResponseEntity.ok(productos);
+        } catch (NumberFormatException e) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("ID de categoría inválido: " + e.getMessage());
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Error al cargar los productos: " + e.getMessage());

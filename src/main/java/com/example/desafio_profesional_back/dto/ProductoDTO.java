@@ -13,6 +13,7 @@ public class ProductoDTO {
     private String descripcion;
     @JsonProperty("price")
     private String precio;
+    private Long categoria_id;
     private CategoriaDTO categoria;
     private List<ImagenDTO> imagenes;
     private Set<FeatureDTO> features;

@@ -62,49 +62,20 @@ public class ProductoService {
      * @return Lista de ProductoDTO
      */
     public List<ProductoDTO> findAll() {
+        log.info("Obteniendo todos los productos");
         List<Producto> productos = productoRepository.findAll();
-        List<ProductoDTO> result = new ArrayList<>();
+        return productos.stream().map(this::convertToDTO).collect(Collectors.toList());
+    }
 
-        for (Producto producto : productos) {
-            ProductoDTO dto = new ProductoDTO();
-            dto.setId(producto.getId());
-            dto.setNombre(producto.getNombre());
-            dto.setDescripcion(producto.getDescripcion());
-
-            // Mapear categoría
-            if (producto.getCategoria() != null) {
-                ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
-                categoriaDTO.setId(producto.getCategoria().getId());
-                categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
-                dto.setCategoria(categoriaDTO);
-            }
-
-            // Mapear imágenes
-            List<Imagen> imagenes = imagenRepository.findByProductoId(producto.getId());
-            List<ProductoDTO.ImagenDTO> imagenDTOs = imagenes.stream().map(imagen -> {
-                ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
-                imagenDTO.setId(imagen.getId());
-                imagenDTO.setRuta(imagen.getRuta());
-                return imagenDTO;
-            }).toList();
-            dto.setImagenes(imagenDTOs);
-
-            // Mapear características
-            if (producto.getFeatures() != null) {
-                Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
-                    FeatureDTO featureDTO = new FeatureDTO();
-                    featureDTO.setId(feature.getId());
-                    featureDTO.setNombre(feature.getNombre());
-                    featureDTO.setIcono(feature.getIcono());
-                    return featureDTO;
-                }).collect(Collectors.toSet());
-                dto.setFeatures(featureDTOs);
-            }
-
-            result.add(dto);
-        }
-
-        return result;
+    /**
+     * Obtiene productos por IDs de categorías.
+     * @param categoriaIds Lista de IDs de categorías
+     * @return Lista de ProductoDTO
+     */
+    public List<ProductoDTO> findByCategoriaIds(List<Long> categoriaIds) {
+        log.info("Obteniendo productos por categorías: {}", categoriaIds);
+        List<Producto> productos = productoRepository.findByCategoriaIdIn(categoriaIds);
+        return productos.stream().map(this::convertToDTO).collect(Collectors.toList());
     }
 
     /**
@@ -118,49 +89,13 @@ public class ProductoService {
             log.warn("Producto no encontrado: {}", id);
             return null;
         }
-        Producto producto = productoOpt.get();
-        ProductoDTO dto = new ProductoDTO();
-        dto.setId(producto.getId());
-        dto.setNombre(producto.getNombre());
-        dto.setDescripcion(producto.getDescripcion());
-
-        // Mapear categoría
-        if (producto.getCategoria() != null) {
-            ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
-            categoriaDTO.setId(producto.getCategoria().getId());
-            categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
-            dto.setCategoria(categoriaDTO);
-        }
-
-        // Mapear imágenes
-        List<Imagen> imagenes = imagenRepository.findByProductoId(producto.getId());
-        List<ProductoDTO.ImagenDTO> imagenDTOs = imagenes.stream().map(imagen -> {
-            ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
-            imagenDTO.setId(imagen.getId());
-            imagenDTO.setRuta(imagen.getRuta());
-            return imagenDTO;
-        }).toList();
-        dto.setImagenes(imagenDTOs);
-
-        // Mapear características
-        if (producto.getFeatures() != null) {
-            Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
-                FeatureDTO featureDTO = new FeatureDTO();
-                featureDTO.setId(feature.getId());
-                featureDTO.setNombre(feature.getNombre());
-                featureDTO.setIcono(feature.getIcono());
-                return featureDTO;
-            }).collect(Collectors.toSet());
-            dto.setFeatures(featureDTOs);
-        }
-
-        return dto;
+        return convertToDTO(productoOpt.get());
     }
 
     /**
      * Actualiza un producto existente usando datos de un DTO.
      * @param id ID del producto
-     * @param productoDTO Datos actualizados (nombre, descripción)
+     * @param productoDTO Datos actualizados (nombre, descripción, precio)
      * @param imagenes Nuevas imágenes
      * @param categoriaId ID de la categoría
      * @param featureIds IDs de las características
@@ -175,6 +110,7 @@ public class ProductoService {
         Producto toUpdate = existing.get();
         toUpdate.setNombre(productoDTO.getNombre());
         toUpdate.setDescripcion(productoDTO.getDescripcion());
+        toUpdate.setPrecio(productoDTO.getPrecio());
 
         // Actualizar categoría
         if (categoriaId != null) {
@@ -205,60 +141,22 @@ public class ProductoService {
             // Guardar nuevas imágenes en src/main/resources/static/uploads/
             for (MultipartFile file : imagenes) {
                 String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-                // Usar la ruta absoluta hacia el directorio estático
                 Path filePath = Paths.get(UPLOAD_DIR + fileName);
                 Files.createDirectories(filePath.getParent());
                 Files.write(filePath, file.getBytes());
                 Imagen imagen = new Imagen();
                 imagen.setProducto(toUpdate);
-                // Mantener la ruta relativa para el frontend
                 imagen.setRuta("/uploads/" + fileName);
                 imagenRepository.save(imagen);
             }
         }
 
-        // Crear DTO para la respuesta
-        ProductoDTO result = new ProductoDTO();
-        result.setId(toUpdate.getId());
-        result.setNombre(toUpdate.getNombre());
-        result.setDescripcion(toUpdate.getDescripcion());
-
-        // Mapear categoría
-        if (toUpdate.getCategoria() != null) {
-            ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
-            categoriaDTO.setId(toUpdate.getCategoria().getId());
-            categoriaDTO.setTitulo(toUpdate.getCategoria().getTitulo());
-            result.setCategoria(categoriaDTO);
-        }
-
-        // Mapear imágenes
-        List<Imagen> updatedImagenes = imagenRepository.findByProductoId(toUpdate.getId());
-        List<ProductoDTO.ImagenDTO> imagenDTOs = updatedImagenes.stream().map(imagen -> {
-            ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
-            imagenDTO.setId(imagen.getId());
-            imagenDTO.setRuta(imagen.getRuta());
-            return imagenDTO;
-        }).toList();
-        result.setImagenes(imagenDTOs);
-
-        // Mapear características
-        if (toUpdate.getFeatures() != null) {
-            Set<FeatureDTO> featureDTOs = toUpdate.getFeatures().stream().map(feature -> {
-                FeatureDTO featureDTO = new FeatureDTO();
-                featureDTO.setId(feature.getId());
-                featureDTO.setNombre(feature.getNombre());
-                featureDTO.setIcono(feature.getIcono());
-                return featureDTO;
-            }).collect(Collectors.toSet());
-            result.setFeatures(featureDTOs);
-        }
-
-        return result;
+        return convertToDTO(toUpdate);
     }
 
     /**
      * Crea un nuevo producto usando datos de un DTO.
-     * @param productoDTO Datos del producto (nombre, descripción)
+     * @param productoDTO Datos del producto (nombre, descripción, precio)
      * @param imagenes Imágenes (opcional)
      * @param categoriaId ID de la categoría (opcional)
      * @param featureIds IDs de las características (opcional)
@@ -269,6 +167,7 @@ public class ProductoService {
         Producto producto = new Producto();
         producto.setNombre(productoDTO.getNombre());
         producto.setDescripcion(productoDTO.getDescripcion());
+        producto.setPrecio(productoDTO.getPrecio());
 
         // Asignar categoría
         if (categoriaId != null) {
@@ -292,55 +191,17 @@ public class ProductoService {
         if (imagenes != null && !imagenes.isEmpty()) {
             for (MultipartFile file : imagenes) {
                 String fileName = UUID.randomUUID() + "_" + file.getOriginalFilename();
-                // Usar la ruta absoluta hacia el directorio estático
                 Path filePath = Paths.get(UPLOAD_DIR + fileName);
                 Files.createDirectories(filePath.getParent());
                 Files.write(filePath, file.getBytes());
                 Imagen imagen = new Imagen();
                 imagen.setProducto(producto);
-                // Mantener la ruta relativa para el frontend
                 imagen.setRuta("/uploads/" + fileName);
                 imagenRepository.save(imagen);
             }
         }
 
-        // Crear DTO para la respuesta
-        ProductoDTO result = new ProductoDTO();
-        result.setId(producto.getId());
-        result.setNombre(producto.getNombre());
-        result.setDescripcion(producto.getDescripcion());
-
-        // Mapear categoría
-        if (producto.getCategoria() != null) {
-            ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
-            categoriaDTO.setId(producto.getCategoria().getId());
-            categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
-            result.setCategoria(categoriaDTO);
-        }
-
-        // Mapear imágenes
-        List<Imagen> createdImagenes = imagenRepository.findByProductoId(producto.getId());
-        List<ProductoDTO.ImagenDTO> imagenDTOs = createdImagenes.stream().map(imagen -> {
-            ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
-            imagenDTO.setId(imagen.getId());
-            imagenDTO.setRuta(imagen.getRuta());
-            return imagenDTO;
-        }).toList();
-        result.setImagenes(imagenDTOs);
-
-        // Mapear características
-        if (producto.getFeatures() != null) {
-            Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
-                FeatureDTO featureDTO = new FeatureDTO();
-                featureDTO.setId(feature.getId());
-                featureDTO.setNombre(feature.getNombre());
-                featureDTO.setIcono(feature.getIcono());
-                return featureDTO;
-            }).collect(Collectors.toSet());
-            result.setFeatures(featureDTOs);
-        }
-
-        return result;
+        return convertToDTO(producto);
     }
 
     /**
@@ -477,23 +338,28 @@ public class ProductoService {
         dto.setId(producto.getId());
         dto.setNombre(producto.getNombre());
         dto.setDescripcion(producto.getDescripcion());
+        dto.setPrecio(producto.getPrecio());
 
+        // Mapear categoría
         if (producto.getCategoria() != null) {
             ProductoDTO.CategoriaDTO categoriaDTO = new ProductoDTO.CategoriaDTO();
             categoriaDTO.setId(producto.getCategoria().getId());
             categoriaDTO.setTitulo(producto.getCategoria().getTitulo());
             dto.setCategoria(categoriaDTO);
+            dto.setCategoria_id(producto.getCategoria().getId());
         }
 
+        // Mapear imágenes
         List<Imagen> imagenes = imagenRepository.findByProductoId(producto.getId());
         List<ProductoDTO.ImagenDTO> imagenDTOs = imagenes.stream().map(imagen -> {
             ProductoDTO.ImagenDTO imagenDTO = new ProductoDTO.ImagenDTO();
             imagenDTO.setId(imagen.getId());
             imagenDTO.setRuta(imagen.getRuta());
             return imagenDTO;
-        }).toList();
+        }).collect(Collectors.toList());
         dto.setImagenes(imagenDTOs);
 
+        // Mapear características
         if (producto.getFeatures() != null) {
             Set<FeatureDTO> featureDTOs = producto.getFeatures().stream().map(feature -> {
                 FeatureDTO featureDTO = new FeatureDTO();
